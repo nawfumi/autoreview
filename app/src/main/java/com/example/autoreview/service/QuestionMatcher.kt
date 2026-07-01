@@ -38,7 +38,7 @@ object QuestionMatcher {
 
     private fun tokenize(text: String): Set<String> {
         return text.lowercase(Locale.getDefault())
-            .replace(Regex("[^a-z0-9\\s]"), "") // Remove punctuation
+            .replace(Regex("[^\\p{L}\\p{N}\\s]"), "") // Remove punctuation (supports Unicode)
             .split(Regex("\\s+"))
             .filter { it.length > 2 } // Ignore very short words like "a", "is" which inflate overlap
             .toSet()

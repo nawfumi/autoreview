@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,7 +56,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class Screen { PERMISSIONS, MAIN, PRESET_SETTINGS, UNRECOGNIZED_QUESTION }
+private enum class Screen { PERMISSIONS, MAIN, PRESET_SETTINGS, UNRECOGNIZED_QUESTION, LOGS }
 
 class MainActivity : ComponentActivity() {
 
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.autoreview.util.AppLogger.init(applicationContext)
         handleIntent(intent)
         setContent {
             AutoReviewTheme {
@@ -107,6 +109,20 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
         }
     }
 
+    var accessibilityGranted by remember { mutableStateOf(viewModel.checkAccessibilityEnabled(context)) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                accessibilityGranted = viewModel.checkAccessibilityEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     when (currentScreen) {
         Screen.UNRECOGNIZED_QUESTION -> {
             androidx.activity.compose.BackHandler { currentScreen = Screen.MAIN }
@@ -138,8 +154,14 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
                 config = config,
                 onConfigChanged = { viewModel.saveConfig(it) },
                 onSeedFromScan = {
-                    android.widget.Toast.makeText(context, "Phase 4 - Not Implemented", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Phase 4 - Not Implemented", Toast.LENGTH_SHORT).show()
                 },
+                onBack = { currentScreen = Screen.MAIN }
+            )
+        }
+        Screen.LOGS -> {
+            androidx.activity.compose.BackHandler { currentScreen = Screen.MAIN }
+            com.example.autoreview.ui.LogsScreen(
                 onBack = { currentScreen = Screen.MAIN }
             )
         }
@@ -148,6 +170,7 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
                 config = config,
                 overlayActive = overlayActive,
                 disclosureAccepted = disclosureAccepted,
+                accessibilityGranted = accessibilityGranted,
                 onDisclosureChanged = { accepted ->
                     disclosureAccepted = accepted
                     prefs.edit { putBoolean("disclosure_accepted", accepted) }
@@ -165,7 +188,8 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 },
                 onOpenPresetSettings = { currentScreen = Screen.PRESET_SETTINGS },
-                onOpenPermissions = { currentScreen = Screen.PERMISSIONS }
+                onOpenPermissions = { currentScreen = Screen.PERMISSIONS },
+                onOpenLogs = { currentScreen = Screen.LOGS }
             )
         }
     }
@@ -177,12 +201,14 @@ private fun MainScreen(
     config: com.example.autoreview.data.PresetConfig,
     overlayActive: Boolean,
     disclosureAccepted: Boolean,
+    accessibilityGranted: Boolean,
     onDisclosureChanged: (Boolean) -> Unit,
     onToggleOverlay: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onOpenPresetSettings: () -> Unit,
-    onOpenPermissions: () -> Unit
+    onOpenPermissions: () -> Unit,
+    onOpenLogs: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -297,9 +323,16 @@ private fun MainScreen(
                         Text("Permissions Setup")
                     }
 
+                    Button(
+                        onClick = onOpenLogs,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("View Debug Logs")
+                    }
+
                     Spacer(Modifier.height(4.dp))
 
-                    val canStart = disclosureAccepted && overlayGranted
+                    val canStart = disclosureAccepted && overlayGranted && accessibilityGranted
 
                     Button(
                         onClick = onToggleOverlay,
@@ -324,6 +357,12 @@ private fun MainScreen(
                     } else if (!overlayGranted) {
                         Text(
                             "Grant overlay permission first",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else if (!accessibilityGranted) {
+                        Text(
+                            "Enable Accessibility Service first",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall
                         )

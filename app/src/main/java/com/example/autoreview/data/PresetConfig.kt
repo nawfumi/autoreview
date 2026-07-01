@@ -22,7 +22,8 @@ data class PresetConfig(
     val questions: List<QuestionPreset> = emptyList(),
     val defaultStarRating: Int = 4,
     val defaultBinaryChoice: String = "Yes",
-    val runHistory: List<RunHistoryEntry> = emptyList()
+    val runHistory: List<RunHistoryEntry> = emptyList(),
+    val automationSpeed: Float = 1.0f
 ) {
     companion object {
         private val json = Json {

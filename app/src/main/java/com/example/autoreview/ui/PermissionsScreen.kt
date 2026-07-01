@@ -99,12 +99,26 @@ fun PermissionsScreen(
 
     val allGranted = permissions.all { it.isGranted() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Scaffold(
+        topBar = {
+            @OptIn(ExperimentalMaterial3Api::class)
+            TopAppBar(
+                title = { Text("Permissions") },
+                navigationIcon = {
+                    IconButton(onClick = onAllGranted) {
+                        Text("<", style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         Text(
             "Permissions Setup",
             style = MaterialTheme.typography.headlineSmall,
@@ -173,6 +187,7 @@ fun PermissionsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
+        }
         }
     }
 }

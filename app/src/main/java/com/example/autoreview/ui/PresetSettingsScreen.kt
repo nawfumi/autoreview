@@ -79,6 +79,46 @@ fun PresetSettingsScreen(
             }
         }
 
+        // Automation speed
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Automation Speed", fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                var sliderValue by remember(localConfig.automationSpeed) { mutableFloatStateOf(localConfig.automationSpeed) }
+                Text(
+                    text = when {
+                        sliderValue < 0.6f -> "Very Fast (May cause app to skip inputs)"
+                        sliderValue < 1.1f -> "Fast"
+                        sliderValue < 1.6f -> "Normal"
+                        sliderValue < 2.1f -> "Slow"
+                        else -> "Very Slow"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Slider(
+                    value = sliderValue,
+                    onValueChange = { newValue ->
+                        sliderValue = newValue
+                    },
+                    onValueChangeFinished = {
+                        localConfig = localConfig.copy(automationSpeed = sliderValue)
+                        save()
+                    },
+                    valueRange = 0.5f..2.5f,
+                    steps = 3
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Fast", style = MaterialTheme.typography.labelSmall)
+                    Text("Normal", style = MaterialTheme.typography.labelSmall)
+                    Text("Slow", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
         // Per-question presets
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {

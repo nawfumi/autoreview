@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,8 +43,21 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        com.example.autoreview.util.AppLogger.init(applicationContext)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         prefs = getSharedPreferences("overlay_prefs", MODE_PRIVATE)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "overlay_service_channel",
+                "AutoReview Overlay",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Floating overlay for auto-filling review forms"
+            }
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(channel)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -228,11 +242,11 @@ class OverlayService : Service() {
                             AutoFillAccessibilityService.instance?.stopAutomation()
                             updateVisualState(AutomationState.IDLE)
                         } else {
-                            android.widget.Toast.makeText(this@OverlayService, "Double-tap to stop", android.widget.Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@OverlayService, "Double-tap to stop", Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         if (AutoFillAccessibilityService.instance == null) {
-                            android.widget.Toast.makeText(this@OverlayService, "Accessibility Service is not enabled!", android.widget.Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@OverlayService, "Accessibility Service is not enabled!", Toast.LENGTH_SHORT).show()
                             updateVisualState(AutomationState.ERROR)
                         } else {
                             v.alpha = 0.5f
@@ -290,17 +304,6 @@ class OverlayService : Service() {
 
     private fun createNotification(state: AutomationState): Notification {
         val channelId = "overlay_service_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "AutoReview Overlay",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Floating overlay for auto-filling review forms"
-            }
-            val nm = getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(channel)
-        }
 
         val contentText = when (state) {
             AutomationState.IDLE -> "Floating overlay active \u2014 tap to auto-fill"
@@ -348,7 +351,7 @@ class OverlayService : Service() {
         private val _isRunningFlow = MutableStateFlow(false)
         val isRunningFlow: StateFlow<Boolean> = _isRunningFlow.asStateFlow()
 
-        val isRunning: Boolean get() = _isRunningFlow.value
+        val isRunning: Boolean get() = isRunningFlow.value
 
         fun updateState(context: Context, state: AutomationState) {
             val intent = Intent(context, OverlayService::class.java).apply {

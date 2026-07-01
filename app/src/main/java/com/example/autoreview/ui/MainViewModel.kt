@@ -62,19 +62,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addRunHistoryEntry(success: Boolean, message: String) {
-        viewModelScope.launch {
-            val entry = com.example.autoreview.data.RunHistoryEntry(
-                timestamp = System.currentTimeMillis(),
-                success = success,
-                message = message
-            )
-            val currentHistory = _presetConfig.value.runHistory
-            val updatedHistory = listOf(entry) + currentHistory.take(19) // Keep last 20
-            val updatedConfig = _presetConfig.value.copy(runHistory = updatedHistory)
-            repository.saveConfig(updatedConfig)
-        }
-    }
 
     fun toggleOverlay(context: Context) {
         if (_overlayActive.value) {
@@ -92,9 +79,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshOverlayState() {
-        // Now handled reactively by StateFlow
-    }
 
     fun checkOverlayPermission(context: Context): Boolean =
         Settings.canDrawOverlays(context)

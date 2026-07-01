@@ -1,6 +1,7 @@
 package com.example.autoreview.service
 
 import android.view.accessibility.AccessibilityNodeInfo
+import com.example.autoreview.util.AppLogger
 
 enum class QuestionType { STAR_RATING, YES_NO }
 
@@ -77,14 +78,17 @@ object NodeFinder {
             val questionText = findLongestTextChild(node)
 
             if (questionText != null && starNodes.size == 5) {
-                android.util.Log.d("NodeFinder", "Discovered STAR question: $questionText")
+                AppLogger.d("NodeFinder", "Discovered STAR question: $questionText")
                 results.add(DiscoveredQuestion(questionText, node, QuestionType.STAR_RATING, starNodes))
                 seenRoots.add(node)
+                yesNo?.first?.recycle()
+                yesNo?.second?.recycle()
                 return 
             } else if (questionText != null && yesNo != null) {
-                android.util.Log.d("NodeFinder", "Discovered YES/NO question: $questionText")
+                AppLogger.d("NodeFinder", "Discovered YES/NO question: $questionText")
                 results.add(DiscoveredQuestion(questionText, node, QuestionType.YES_NO, listOf(yesNo.first, yesNo.second)))
                 seenRoots.add(node)
+                starNodes.forEach { it.recycle() }
                 return
             }
             
@@ -154,7 +158,6 @@ object NodeFinder {
                         if (child !== yesNode && child !== noNode) {
                             child.recycle()
                         }
-                        if (yesNode != null && noNode != null) return
                     }
                 }
             }
@@ -181,8 +184,12 @@ object NodeFinder {
         }
 
         fun collect(n: AccessibilityNodeInfo) {
-            processText(n.text?.toString())
-            processText(n.contentDescription?.toString())
+            val t = n.text?.toString()?.trim()
+            if (!t.isNullOrEmpty()) {
+                processText(t)
+            } else {
+                processText(n.contentDescription?.toString())
+            }
             
             for (i in 0 until n.childCount) {
                 n.getChild(i)?.let { child -> 
@@ -217,13 +224,17 @@ object NodeFinder {
         return scrolled
     }
 
+    /**
+     * Attempts to perform a click on the given [node] or its parents.
+     * Note: This method DOES NOT recycle the original [node]. The caller is responsible for recycling it.
+     */
     fun performClickOnNodeOrParent(node: AccessibilityNodeInfo?, service: android.accessibilityservice.AccessibilityService, logTag: String = "NodeFinder"): Boolean {
         if (node == null) {
-            android.util.Log.e(logTag, "Cannot click: node is null")
+            AppLogger.e(logTag, "Cannot click: node is null")
             return false
         }
         
-        android.util.Log.d(logTag, "Attempting to click node with text='${node.text}' desc='${node.contentDescription}' class='${node.className}'")
+        AppLogger.d(logTag, "Attempting to click node with text='${node.text}' desc='${node.contentDescription}' class='${node.className}'")
 
         // 1. Try standard Accessibility ACTION_CLICK on the node or its parents
         var current = node
@@ -232,11 +243,11 @@ object NodeFinder {
         var depth = 0
         while (current != null && depth < 10) {
             val isClickable = current.isClickable
-            android.util.Log.d(logTag, "  -> Checking parent depth=$depth: class='${current.className}' isClickable=$isClickable")
+            AppLogger.d(logTag, "  -> Checking parent depth=$depth: class='${current.className}' isClickable=$isClickable")
             
             if (isClickable) {
                 actionClickSuccess = current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                android.util.Log.d(logTag, "  -> ACTION_CLICK performed on depth=$depth, returned: $actionClickSuccess")
+                AppLogger.d(logTag, "  -> ACTION_CLICK performed on depth=$depth, returned: $actionClickSuccess")
                 if (actionClickSuccess) {
                     if (!first) current.recycle()
                     break
@@ -250,16 +261,16 @@ object NodeFinder {
         }
         
         if (actionClickSuccess) {
-            android.util.Log.d(logTag, "Click succeeded using standard ACTION_CLICK")
+            AppLogger.d(logTag, "Click succeeded using standard ACTION_CLICK")
             return true
         }
 
-        android.util.Log.d(logTag, "Standard ACTION_CLICK failed or no clickable parent found. Falling back to gesture.")
+        AppLogger.d(logTag, "Standard ACTION_CLICK failed or no clickable parent found. Falling back to gesture.")
 
         // 2. Fallback: Attempt physical gesture click
         val rect = android.graphics.Rect()
         node.getBoundsInScreen(rect)
-        android.util.Log.d(logTag, "  -> Target screen bounds: $rect (isEmpty=${rect.isEmpty})")
+        AppLogger.d(logTag, "  -> Target screen bounds: $rect (isEmpty=${rect.isEmpty})")
         
         if (!rect.isEmpty && rect.centerX() > 0 && rect.centerY() > 0) {
             val path = android.graphics.Path().apply {
@@ -270,12 +281,32 @@ object NodeFinder {
                 .build()
             
             val dispatched = service.dispatchGesture(gesture, null, null)
-            android.util.Log.d(logTag, "  -> dispatchGesture returned: $dispatched")
+            AppLogger.d(logTag, "  -> dispatchGesture returned: $dispatched")
             return dispatched
         } else {
-            android.util.Log.e(logTag, "  -> Cannot dispatch gesture: invalid bounds")
+            AppLogger.e(logTag, "  -> Cannot dispatch gesture: invalid bounds")
         }
 
         return false
+    }
+
+    fun isNodeVisible(node: AccessibilityNodeInfo, containerRect: android.graphics.Rect?, screenHeight: Int, screenWidth: Int): Boolean {
+        val rect = android.graphics.Rect()
+        node.getBoundsInScreen(rect)
+        if (rect.isEmpty) return false
+        
+        val centerY = rect.centerY()
+        val centerX = rect.centerX()
+        
+        val top = containerRect?.top ?: 0
+        val bottom = containerRect?.bottom ?: screenHeight
+        val left = containerRect?.left ?: 0
+        val right = containerRect?.right ?: screenWidth
+        
+        val margin = 20
+        return centerY > top + margin && 
+               centerY < bottom - margin &&
+               centerX >= left && 
+               centerX <= right
     }
 }

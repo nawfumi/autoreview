@@ -8,11 +8,12 @@ import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.annotation.RequiresApi
+import android.widget.Toast
 import com.example.autoreview.data.PresetRepository
 import com.example.autoreview.service.NodeFinder
 import com.example.autoreview.service.QuestionMatcher
 import com.example.autoreview.service.QuestionType
+import com.example.autoreview.util.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.atomic.AtomicBoolean
@@ -34,7 +35,8 @@ class AutoFillAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         presetRepository = PresetRepository(this)
-        Log.d(TAG, "Service connected")
+        AppLogger.init(applicationContext)
+        AppLogger.d(TAG, "Service connected")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { }
@@ -49,23 +51,22 @@ class AutoFillAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun startAutomation() {
         if (automationRunning.getAndSet(true)) return
 
         shouldStop.set(false)
         updateState(OverlayService.AutomationState.RUNNING)
-        Log.d(TAG, "Automation started")
+        AppLogger.d(TAG, "Automation started")
 
         automationJob = serviceScope.launch {
             try {
                 performAutomation()
             } catch (e: CancellationException) {
-                Log.d(TAG, "Automation cancelled")
+                AppLogger.d(TAG, "Automation cancelled")
                 if (!shouldStop.get()) updateState(OverlayService.AutomationState.IDLE)
                 serviceScope.launch { logHistory(false, "Cancelled by user") }
             } catch (e: Exception) {
-                Log.e(TAG, "Automation error", e)
+                AppLogger.e(TAG, "Automation error", e)
                 updateState(OverlayService.AutomationState.ERROR)
                 serviceScope.launch { logHistory(false, "Error: ${e.message}") }
             } finally {
@@ -79,7 +80,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
         shouldStop.set(true)
         automationJob?.cancel()
         updateState(OverlayService.AutomationState.IDLE)
-        Log.d(TAG, "Automation stop requested")
+        AppLogger.d(TAG, "Automation stop requested")
     }
 
     private fun updateState(state: OverlayService.AutomationState) {
@@ -97,7 +98,6 @@ class AutoFillAccessibilityService : AccessibilityService() {
         presetRepository.saveConfig(config.copy(runHistory = updatedHistory))
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun performAutomation() = withContext(Dispatchers.IO) {
         val config = presetRepository.presetConfig.first()
 
@@ -105,10 +105,10 @@ class AutoFillAccessibilityService : AccessibilityService() {
         var root = waitForRoot()
         
         if (root.packageName?.toString() != TARGET_PACKAGE) {
-            Log.e(TAG, "Not in target app: ${root.packageName}")
+            AppLogger.e(TAG, "Not in target app: ${root.packageName}")
             updateState(OverlayService.AutomationState.ERROR)
             withContext(Dispatchers.Main) {
-                android.widget.Toast.makeText(this@AutoFillAccessibilityService, "Must be in My AFMC app", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AutoFillAccessibilityService, "Must be in My AFMC app", Toast.LENGTH_SHORT).show()
             }
             logHistory(false, "Must be in target app")
             return@withContext
@@ -118,11 +118,11 @@ class AutoFillAccessibilityService : AccessibilityService() {
             ?: NodeFinder.findNodeByDescription(root, "Write Review")
         
         if (writeReviewBtn != null) {
-            Log.d(TAG, "Found Write Review button, clicking...")
+            AppLogger.d(TAG, "Found Write Review button, clicking...")
             val success = NodeFinder.performClickOnNodeOrParent(writeReviewBtn, this@AutoFillAccessibilityService, TAG)
-            Log.d(TAG, "Write Review click success: $success")
+            AppLogger.d(TAG, "Write Review click success: $success")
             writeReviewBtn.recycle()
-            delay(1000.milliseconds)
+            delayScaled(1000L, config.automationSpeed)
             root = waitForRoot()
         }
 
@@ -130,14 +130,15 @@ class AutoFillAccessibilityService : AccessibilityService() {
         var scrollAttempts = 0
 
         while (isActive && !shouldStop.get()) {
+            root.recycle()
             root = waitForRoot()
             val discovered = NodeFinder.discoverQuestionCards(root)
             val unhandled = discovered.filter { it.questionText !in answered }
             
             if (scrollAttempts == 0 && answered.isEmpty()) {
-                Log.d(TAG, "--- DUMPING UI TREE ---")
+                AppLogger.d(TAG, "--- DUMPING UI TREE ---")
                 fun dumpNode(n: AccessibilityNodeInfo, indent: String = "") {
-                    Log.d(TAG, "$indent[${n.className}] text='${n.text}' desc='${n.contentDescription}' isClickable=${n.isClickable}")
+                    AppLogger.d(TAG, "$indent[${n.className}] text='${n.text}' desc='${n.contentDescription}' isClickable=${n.isClickable}")
                     for (i in 0 until n.childCount) {
                         n.getChild(i)?.let { 
                             dumpNode(it, "$indent  ")
@@ -146,10 +147,10 @@ class AutoFillAccessibilityService : AccessibilityService() {
                     }
                 }
                 dumpNode(root)
-                Log.d(TAG, "--- END UI TREE ---")
+                AppLogger.d(TAG, "--- END UI TREE ---")
             }
             
-            Log.d(TAG, "Discovered ${discovered.size} questions, ${unhandled.size} unhandled")
+            AppLogger.d(TAG, "Discovered ${discovered.size} questions, ${unhandled.size} unhandled")
 
             // Clean up interactive nodes for questions we've already answered
             discovered.filter { it.questionText in answered }.forEach {
@@ -157,22 +158,43 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 it.cardRoot.recycle()
             }
 
-            if (unhandled.isEmpty()) {
-                Log.d(TAG, "No unhandled questions. Scrolling forward (attempt $scrollAttempts)")
-                val container = NodeFinder.findScrollableContainer(root)
+            val container = NodeFinder.findScrollableContainer(root)
+            val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+            val dm = resources.displayMetrics
+            
+            val safeUnhandled = unhandled.filter { q ->
+                q.interactiveNodes.all { node ->
+                    NodeFinder.isNodeVisible(node, if (containerRect.isEmpty) null else containerRect, dm.heightPixels, dm.widthPixels)
+                }
+            }
+
+            if (safeUnhandled.isEmpty()) {
+                if (unhandled.isEmpty()) {
+                    AppLogger.d(TAG, "No unhandled questions. Scrolling forward (attempt $scrollAttempts)")
+                } else {
+                    AppLogger.d(TAG, "Questions found but not fully visible. Scrolling forward (attempt $scrollAttempts)")
+                }
                 val scrolled = NodeFinder.performScrollForward(container)
                 container?.recycle()
                 if (!scrolled || scrollAttempts > 10) {
-                    Log.d(TAG, "Reached end of list or cannot scroll anymore.")
-                    break // End of list
+                    if (unhandled.isNotEmpty()) {
+                        AppLogger.d(TAG, "Cannot scroll anymore, processing remaining partially visible questions as fallback.")
+                    } else {
+                        AppLogger.d(TAG, "Reached end of list or cannot scroll anymore.")
+                        break // End of list
+                    }
+                } else {
+                    scrollAttempts++
+                    delayScaled(100..250, config.automationSpeed)
+                    continue
                 }
-                scrollAttempts++
-                delay((100..250).random().toLong().milliseconds)
-                continue
+            } else {
+                container?.recycle()
             }
             scrollAttempts = 0
 
-            for (q in unhandled) {
+            val toProcess = if (safeUnhandled.isNotEmpty()) safeUnhandled else unhandled
+            for (q in toProcess) {
                 if (!isActive || shouldStop.get()) {
                     unhandled.forEach { uq -> 
                         uq.interactiveNodes.forEach { it.recycle() }
@@ -185,33 +207,41 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 var preset = QuestionMatcher.bestMatch(q.questionText, config.questions)
                 
                 if (preset == null) {
-                    Log.w(TAG, "Unrecognized question: \"${q.questionText}\". Using defaults.")
-                    // Create a dummy preset with the global defaults so it can proceed
-                    preset = com.example.autoreview.data.QuestionPreset(
-                        questionTextKey = q.questionText,
-                        starValue = config.defaultStarRating,
-                        yesNo = (config.defaultBinaryChoice == "Yes")
-                    )
+                    AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Asking user for mapping.")
+                    shouldStop.set(true)
+                    val intent = Intent(this@AutoFillAccessibilityService, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("unrecognized_question", q.questionText)
+                    }
+                    startActivity(intent)
+                    updateState(OverlayService.AutomationState.IDLE)
+                    logHistory(false, "Paused for unrecognized question")
+                    
+                    unhandled.forEach { uq -> 
+                        uq.interactiveNodes.forEach { n -> n.recycle() }
+                        uq.cardRoot.recycle()
+                    }
+                    return@withContext
                 }
 
                 if (q.type == QuestionType.STAR_RATING) {
                     val stars = q.interactiveNodes
                     val starVal = preset.starValue ?: config.defaultStarRating
                     if (stars.size == 5 && starVal in 1..5) {
-                        Log.d(TAG, "Clicking star $starVal for question: ${q.questionText}")
+                        AppLogger.d(TAG, "Clicking star $starVal for question: ${q.questionText}")
                         val success = NodeFinder.performClickOnNodeOrParent(stars[starVal - 1], this@AutoFillAccessibilityService, TAG)
-                        Log.d(TAG, "Star click success: $success")
-                        delay((100..200).random().toLong().milliseconds)
+                        AppLogger.d(TAG, "Star click success: $success")
+                        delayScaled(100..200, config.automationSpeed)
                     }
                 } else if (q.type == QuestionType.YES_NO) {
                     val yesNo = q.interactiveNodes
                     if (yesNo.size == 2) {
                         val choice = preset.yesNo ?: (config.defaultBinaryChoice == "Yes")
                         val target = if (choice) yesNo[0] else yesNo[1]
-                        Log.d(TAG, "Clicking $choice for question: ${q.questionText}")
+                        AppLogger.d(TAG, "Clicking $choice for question: ${q.questionText}")
                         val success = NodeFinder.performClickOnNodeOrParent(target, this@AutoFillAccessibilityService, TAG)
-                        Log.d(TAG, "Yes/No click success: $success")
-                        delay((100..200).random().toLong().milliseconds)
+                        AppLogger.d(TAG, "Yes/No click success: $success")
+                        delayScaled(100..200, config.automationSpeed)
                     }
                 }
                 
@@ -222,30 +252,57 @@ class AutoFillAccessibilityService : AccessibilityService() {
         
         if (shouldStop.get()) return@withContext
 
-        // Poll for submit
-        var submitBtn = NodeFinder.findEnabledSubmit(root)
+        // Poll for submit and ensure it's visible by scrolling if necessary
+        var submitBtn: AccessibilityNodeInfo? = null
+        val dm = resources.displayMetrics
         
         for (i in 1..20) {
-            if (submitBtn != null) break
-            delay(500.milliseconds)
+            submitBtn = NodeFinder.findEnabledSubmit(root)
             
+            if (submitBtn != null) {
+                val container = NodeFinder.findScrollableContainer(root)
+                val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+                container?.recycle()
+                
+                if (NodeFinder.isNodeVisible(submitBtn, if (containerRect.isEmpty) null else containerRect, dm.heightPixels, dm.widthPixels)) {
+                    break
+                } else {
+                    AppLogger.d(TAG, "Submit button found but not fully visible, scrolling...")
+                    
+                    val scrollContainer = NodeFinder.findScrollableContainer(root)
+                    val scrolled = NodeFinder.performScrollForward(scrollContainer)
+                    scrollContainer?.recycle()
+                    
+                    if (!scrolled) {
+                        AppLogger.d(TAG, "Cannot scroll further, using partially visible Submit button.")
+                        break
+                    }
+                    
+                    submitBtn.recycle()
+                    submitBtn = null
+                }
+            } else {
+                val scrollContainer = NodeFinder.findScrollableContainer(root)
+                NodeFinder.performScrollForward(scrollContainer)
+                scrollContainer?.recycle()
+            }
+            
+            delayScaled(500L, config.automationSpeed)
             root.recycle() // Recycle old root
             root = waitForRoot()
-            
-            submitBtn = NodeFinder.findEnabledSubmit(root)
         }
         
         if (submitBtn != null) {
-            Log.d(TAG, "Found Submit button, clicking...")
-            delay((200..400).random().toLong().milliseconds)
+            AppLogger.d(TAG, "Found Submit button, clicking...")
+            delayScaled(200..400, config.automationSpeed)
             val success = NodeFinder.performClickOnNodeOrParent(submitBtn, this@AutoFillAccessibilityService, TAG)
-            Log.d(TAG, "Submit click success: $success")
+            AppLogger.d(TAG, "Submit click success: $success")
             submitBtn.recycle()
             updateState(OverlayService.AutomationState.DONE)
-            Log.d(TAG, "Automation finished successfully")
+            AppLogger.d(TAG, "Automation finished successfully")
             logHistory(true, "Completed review successfully")
         } else {
-            Log.e(TAG, "Submit button not found or not enabled")
+            AppLogger.e(TAG, "Submit button not found or not enabled")
             updateState(OverlayService.AutomationState.ERROR)
             logHistory(false, "Submit button not found")
         }
@@ -262,6 +319,13 @@ class AutoFillAccessibilityService : AccessibilityService() {
         return root ?: throw IllegalStateException("Window root is null")
     }
     
+    private suspend fun delayScaled(baseMs: Long, speed: Float) {
+        delay((baseMs * speed).toLong().milliseconds)
+    }
+
+    private suspend fun delayScaled(range: IntRange, speed: Float) {
+        delay((range.random() * speed).toLong().milliseconds)
+    }
 
 
     companion object {
