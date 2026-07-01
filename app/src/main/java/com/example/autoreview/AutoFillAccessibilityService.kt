@@ -214,21 +214,30 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 var preset = QuestionMatcher.bestMatch(q.questionText, config.questions)
                 
                 if (preset == null) {
-                    AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Asking user for mapping.")
-                    shouldStop.set(true)
-                    val intent = Intent(this@AutoFillAccessibilityService, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        putExtra("unrecognized_question", q.questionText)
+                    if (config.unrecognizedPolicy == com.example.autoreview.data.UnrecognizedPolicy.ASK_USER) {
+                        AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Asking user for mapping.")
+                        shouldStop.set(true)
+                        val intent = Intent(this@AutoFillAccessibilityService, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            putExtra("unrecognized_question", q.questionText)
+                        }
+                        startActivity(intent)
+                        updateState(OverlayService.AutomationState.IDLE)
+                        logHistory(false, "Paused for unrecognized question")
+                        
+                        unhandled.forEach { uq -> 
+                            uq.interactiveNodes.forEach { n -> n.recycle() }
+                            uq.cardRoot.recycle()
+                        }
+                        return@withContext
+                    } else {
+                        AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Using defaults.")
+                        preset = com.example.autoreview.data.QuestionPreset(
+                            questionTextKey = q.questionText,
+                            starValue = config.defaultStarRating,
+                            yesNo = (config.defaultBinaryChoice == "Yes")
+                        )
                     }
-                    startActivity(intent)
-                    updateState(OverlayService.AutomationState.IDLE)
-                    logHistory(false, "Paused for unrecognized question")
-                    
-                    unhandled.forEach { uq -> 
-                        uq.interactiveNodes.forEach { n -> n.recycle() }
-                        uq.cardRoot.recycle()
-                    }
-                    return@withContext
                 }
 
                 if (q.type == QuestionType.STAR_RATING) {

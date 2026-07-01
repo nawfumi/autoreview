@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.autoreview.data.PresetConfig
 import com.example.autoreview.data.QuestionPreset
+import com.example.autoreview.data.UnrecognizedPolicy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +30,7 @@ fun PresetSettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .padding(16.dp)
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -75,6 +77,38 @@ fun PresetSettingsScreen(
                             label = { Text(choice) }
                         )
                     }
+                }
+            }
+        }
+
+        // Unrecognized Question Policy
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Unrecognized Question Policy", fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "What should the bot do if it encounters a question not listed in the overrides below?",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = localConfig.unrecognizedPolicy == UnrecognizedPolicy.USE_DEFAULTS,
+                        onClick = {
+                            localConfig = localConfig.copy(unrecognizedPolicy = UnrecognizedPolicy.USE_DEFAULTS)
+                            save()
+                        },
+                        label = { Text("Use Defaults") }
+                    )
+                    FilterChip(
+                        selected = localConfig.unrecognizedPolicy == UnrecognizedPolicy.ASK_USER,
+                        onClick = {
+                            localConfig = localConfig.copy(unrecognizedPolicy = UnrecognizedPolicy.ASK_USER)
+                            save()
+                        },
+                        label = { Text("Pause & Ask Me") }
+                    )
                 }
             }
         }
@@ -213,56 +247,60 @@ private fun QuestionPresetRow(
     onUpdate: (QuestionPreset) -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = preset.questionTextKey,
-            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall,
-            maxLines = 2
+            fontWeight = FontWeight.Medium
         )
 
-        if (preset.yesNo != null) {
-            // Binary question
-            AssistChip(
-                onClick = {
-                    onUpdate(
-                        preset.copy(
-                            yesNo = !preset.yesNo,
-                            starValue = null
-                        )
-                    )
-                },
-                label = { Text(if (preset.yesNo) "Yes" else "No") }
-            )
-        } else {
-            // Star rating question
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                (1..5).forEach { star ->
-                    FilterChip(
-                        selected = preset.starValue == star,
-                        onClick = {
-                            onUpdate(
-                                preset.copy(
-                                    starValue = star,
-                                    yesNo = null
-                                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (preset.yesNo != null) {
+                // Binary question
+                AssistChip(
+                    onClick = {
+                        onUpdate(
+                            preset.copy(
+                                yesNo = !preset.yesNo,
+                                starValue = null
                             )
-                        },
-                        label = { Text("$star", style = MaterialTheme.typography.labelSmall) },
-                        modifier = Modifier.height(32.dp)
-                    )
+                        )
+                    },
+                    label = { Text(if (preset.yesNo) "Yes" else "No") }
+                )
+            } else {
+                // Star rating question
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    (1..5).forEach { star ->
+                        FilterChip(
+                            selected = preset.starValue == star,
+                            onClick = {
+                                onUpdate(
+                                    preset.copy(
+                                        starValue = star,
+                                        yesNo = null
+                                    )
+                                )
+                            },
+                            label = { Text("$star", style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.height(32.dp)
+                        )
+                    }
                 }
             }
-        }
 
-        IconButton(onClick = onDelete) {
-            Text("X", style = MaterialTheme.typography.labelSmall)
+            IconButton(onClick = onDelete) {
+                Text("X", style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
