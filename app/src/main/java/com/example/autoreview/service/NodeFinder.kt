@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.autoreview.service
 
 import android.view.accessibility.AccessibilityNodeInfo
@@ -165,7 +167,7 @@ object NodeFinder {
 
         collect(node)
         if (yesNode != null && noNode != null) {
-            return Pair(yesNode!!, noNode!!)
+            return Pair(yesNode, noNode)
         }
         
         yesNode?.recycle()

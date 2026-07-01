@@ -1,11 +1,10 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.autoreview
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
 import android.content.Intent
-import android.os.Build
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
@@ -14,8 +13,16 @@ import com.example.autoreview.service.NodeFinder
 import com.example.autoreview.service.QuestionMatcher
 import com.example.autoreview.service.QuestionType
 import com.example.autoreview.util.AppLogger
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -193,7 +200,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
             }
             scrollAttempts = 0
 
-            val toProcess = if (safeUnhandled.isNotEmpty()) safeUnhandled else unhandled
+            val toProcess = safeUnhandled.ifEmpty { unhandled }
             for (q in toProcess) {
                 if (!isActive || shouldStop.get()) {
                     unhandled.forEach { uq -> 
