@@ -1,26 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoReview | Smarter Reviews for Android</title>
-    <meta name="description" content="Download AutoReview, the most advanced Android app to automate and streamline your review processes. Get the latest APK now.">
-    
-    <!-- Google Fonts -->
+    <title>AutoReview — Accessibility-powered review automation for Android</title>
+    <meta name="description"
+        content="AutoReview scans the on-screen UI tree, matches the right control by text, and taps it for you. Built with AccessibilityService for Android.">
+    <link rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23141922'/%3E%3Cpath fill='%234CE0B3' d='M20,9V7c0,-1.1 -0.9,-2 -2,-2h-3c0,-1.66 -1.34,-3 -3,-3S9,3.34 9,5H6C4.9,5 4,5.9 4,7v2c-1.66,0 -3,1.34 -3,3v4c0,1.66 1.34,3 3,3v4c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2v-4c1.66,0 3,-1.34 3,-3v-4C23,10.34 21.66,9 20,9z M7.5,11.5C7.5,10.67 8.17,10 9,10s1.5,0.67 1.5,1.5S9.83,13 9,13S7.5,12.33 7.5,11.5z M16.5,11.5c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5s0.67,1.5 1.5,1.5S16.5,12.33 16.5,11.5z M16,17H8v-2h8V17z'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #1a2333 100%);
-            --primary: #3ddc84; /* Android Green */
-            --primary-glow: rgba(61, 220, 132, 0.4);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --card-bg: rgba(30, 41, 59, 0.6);
-            --card-border: rgba(255, 255, 255, 0.08);
+            --bg: #0A0D12;
+            --bg-elevated: #0F1319;
+            --surface: #141922;
+            --surface-2: #1A2029;
+            --border: #232A36;
+            --text: #E9ECF2;
+            --text-muted: #8992A3;
+            --text-faint: #565F70;
+            --mint: #4CE0B3;
+            --mint-dim: rgba(76, 224, 179, 0.12);
+            --violet: #8B7FF0;
+            --violet-dim: rgba(139, 127, 240, 0.12);
+            --radius-s: 8px;
+            --radius-m: 14px;
+            --radius-l: 22px;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
         * {
@@ -29,422 +42,1138 @@
             box-sizing: border-box;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-gradient);
-            background-attachment: fixed;
-            color: var(--text-main);
-            min-height: 100vh;
-            overflow-x: hidden;
-            position: relative;
+            background:
+                radial-gradient(ellipse 900px 500px at 82% -10%, rgba(139, 127, 240, 0.16), transparent 60%),
+                radial-gradient(ellipse 700px 500px at -5% 20%, rgba(76, 224, 179, 0.10), transparent 55%),
+                var(--bg);
+            color: var(--text);
+            font-family: var(--font-body);
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Abstract Tech Background Elements */
-        body::before {
-            content: '';
-            position: absolute;
-            top: -150px;
-            right: -150px;
-            width: 500px;
-            height: 500px;
-            background: var(--primary);
-            filter: blur(150px);
-            opacity: 0.15;
-            z-index: -1;
-            border-radius: 50%;
+        a {
+            color: inherit;
+            text-decoration: none;
         }
 
-        body::after {
-            content: '';
-            position: absolute;
-            bottom: -200px;
-            left: -200px;
-            width: 600px;
-            height: 600px;
-            background: #2563eb;
-            filter: blur(180px);
-            opacity: 0.15;
-            z-index: -1;
-            border-radius: 50%;
+        img,
+        svg {
+            display: block;
+            max-width: 100%;
         }
 
-        .container {
-            max-width: 1200px;
+        .wrap {
+            max-width: 1180px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0 32px;
         }
 
-        /* Navbar */
-        header {
-            padding: 2rem 0;
+        ::selection {
+            background: var(--mint);
+            color: #06120D;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--mint);
+            outline-offset: 3px;
+            border-radius: 4px;
+        }
+
+        /* ---------- NAV ---------- */
+        header.nav {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(10, 13, 18, 0.78);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-inner {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
+            padding: 16px 32px;
         }
 
-        .logo-container {
+        .brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            text-decoration: none;
-            color: var(--text-main);
+            gap: 10px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 17px;
+            letter-spacing: -0.01em;
         }
 
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(45deg, var(--primary), #2563eb);
-            border-radius: 12px;
+        .brand .logo-mark {
+            width: 30px;
+            height: 30px;
+        }
+
+        .nav-links {
             display: flex;
             align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 15px var(--primary-glow);
+            gap: 28px;
         }
 
-        .logo-icon svg {
-            width: 24px;
-            height: 24px;
-            fill: #fff;
-        }
-
-        .logo-text {
-            font-weight: 800;
-            font-size: 1.5rem;
-            letter-spacing: -0.5px;
-        }
-        
-        .logo-text span {
-            color: var(--primary);
-        }
-
-        nav ul {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-        }
-
-        nav a {
+        .nav-links a {
             color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color .15s ease;
         }
 
-        nav a:hover {
-            color: var(--text-main);
+        .nav-links a:hover {
+            color: var(--text);
         }
 
-        /* Hero Section */
-        .hero {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            padding: 6rem 0 4rem;
-            min-height: 70vh;
-            justify-content: center;
-        }
-
-        .badge {
-            background: rgba(61, 220, 132, 0.1);
-            border: 1px solid rgba(61, 220, 132, 0.2);
-            color: var(--primary);
-            padding: 0.5rem 1rem;
-            border-radius: 50px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 2rem;
+        .nav-cta {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            font-family: 'JetBrains Mono', monospace;
+            gap: 8px;
+            background: var(--mint);
+            color: #06120D;
+            font-family: var(--font-body);
+            font-weight: 700;
+            font-size: 13.5px;
+            padding: 9px 16px;
+            border-radius: 100px;
+            transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px -6px rgba(76, 224, 179, 0.5);
+        }
+
+        /* ---------- HERO ---------- */
+        .hero {
+            padding: 88px 0 60px;
+        }
+
+        .hero-inner {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 56px;
+            align-items: center;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--mint);
+            background: var(--mint-dim);
+            border: 1px solid rgba(76, 224, 179, 0.25);
+            padding: 6px 12px;
+            border-radius: 100px;
+            margin-bottom: 22px;
+        }
+
+        .eyebrow .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--mint);
+            box-shadow: 0 0 0 3px rgba(76, 224, 179, 0.18);
         }
 
         h1 {
-            font-size: clamp(3rem, 5vw, 4.5rem);
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 1.5rem;
-            letter-spacing: -1px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(36px, 4.6vw, 58px);
+            line-height: 1.06;
+            letter-spacing: -0.02em;
+            color: #F5F7FA;
         }
 
-        .hero-subtitle {
-            font-size: 1.25rem;
+        h1 .accent {
+            color: var(--mint);
+        }
+
+        .hero p.lead {
+            margin-top: 22px;
+            font-size: 17px;
             color: var(--text-muted);
-            max-width: 600px;
-            margin: 0 auto 3rem;
-            line-height: 1.6;
+            max-width: 480px;
         }
 
-        /* Download Button */
-        .download-btn {
+        .hero p.lead code {
+            font-family: var(--font-mono);
+            font-size: 14.5px;
+            color: var(--violet);
+            background: var(--violet-dim);
+            padding: 1px 6px;
+            border-radius: 5px;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 32px;
+        }
+
+        .btn-primary {
             display: inline-flex;
             align-items: center;
-            gap: 1rem;
-            background: var(--primary);
-            color: #000;
-            padding: 1rem 2rem;
-            border-radius: 16px;
-            text-decoration: none;
+            gap: 10px;
+            background: var(--mint);
+            color: #06120D;
             font-weight: 700;
-            font-size: 1.125rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 10px 30px -10px var(--primary);
-        }
-
-        .download-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .download-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 35px -10px var(--primary);
-            background: #4ade80;
-        }
-
-        .download-btn:hover::before {
-            left: 100%;
-        }
-
-        .download-icon {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
-        }
-        
-        .version-info {
-            margin-top: 1rem;
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Tech Mockup / Graphic */
-        .mockup-container {
-            margin-top: 4rem;
-            position: relative;
-            width: 100%;
-            max-width: 800px;
-            height: 400px;
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 24px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .code-snippet {
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--primary);
-            text-align: left;
-            width: 100%;
-            padding: 2rem;
-            opacity: 0.8;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-
-        .mockup-glow {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 200px;
-            height: 200px;
-            background: var(--primary);
-            filter: blur(100px);
-            opacity: 0.2;
-        }
-
-        /* Features */
-        .features {
-            padding: 6rem 0;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-
-        .feature-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            padding: 2rem;
-            border-radius: 20px;
-            transition: transform 0.3s ease, border-color 0.3s ease;
-            backdrop-filter: blur(10px);
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(61, 220, 132, 0.5);
-        }
-
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            background: rgba(61, 220, 132, 0.1);
+            font-size: 15px;
+            padding: 14px 22px;
             border-radius: 12px;
+            transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px -8px rgba(76, 224, 179, 0.55);
+        }
+
+        .btn-primary svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 600;
+            font-size: 15px;
+            padding: 14px 22px;
+            border-radius: 12px;
+            background: var(--surface);
+            transition: border-color .15s ease, background .15s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: #39424f;
+            background: var(--surface-2);
+        }
+
+        .hero-meta {
+            margin-top: 18px;
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            color: var(--text-faint);
+        }
+
+        .hero-meta span {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            color: var(--primary);
-        }
-        
-        .feature-icon svg {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
+            gap: 6px;
         }
 
-        .feature-title {
-            font-size: 1.25rem;
+        .hero-meta .sep {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: var(--text-faint);
+        }
+
+        /* ---------- SIGNATURE: node-tree scanner ---------- */
+        .scanner-card {
+            position: relative;
+            background: linear-gradient(180deg, var(--bg-elevated), #0C1016);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-l);
+            padding: 28px;
+            overflow: hidden;
+        }
+
+        .scanner-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 28px),
+                repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 28px);
+            mask-image: radial-gradient(circle at 50% 40%, black, transparent 75%);
+            pointer-events: none;
+        }
+
+        .scanner-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            color: var(--text-faint);
+            margin-bottom: 18px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .scanner-topbar .live {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--mint);
+        }
+
+        .scanner-topbar .live .blink {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--mint);
+            animation: blink 1.6s ease-in-out infinite;
+        }
+
+        svg#tree {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: auto;
+        }
+
+        .tree-edge {
+            stroke: #2B3341;
+            stroke-width: 1.6;
+            fill: none;
+        }
+
+        .tree-node-bg {
+            fill: var(--surface);
+            stroke: #2B3341;
+            stroke-width: 1.4;
+        }
+
+        .tree-node-label {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            fill: var(--text-faint);
+        }
+
+        .pulse-dot {
+            fill: var(--violet);
+            opacity: 0;
+        }
+
+        .pulse-dot.n1 {
+            animation: travel1 3.6s ease-in-out infinite;
+        }
+
+        .pulse-dot.n2 {
+            animation: travel2 3.6s ease-in-out infinite;
+            animation-delay: .9s;
+        }
+
+        .pulse-dot.n3 {
+            animation: travel3 3.6s ease-in-out infinite;
+            animation-delay: 1.8s;
+        }
+
+        .match-node rect {
+            animation: matchGlow 3.6s ease-in-out infinite;
+        }
+
+        .match-ring {
+            animation: ring 3.6s ease-in-out infinite;
+        }
+
+        .match-check {
+            opacity: 0;
+            animation: checkIn 3.6s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .25;
+            }
+        }
+
+        @keyframes travel1 {
+            0% {
+                opacity: 0;
+            }
+
+            3% {
+                opacity: 1;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            33% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes travel2 {
+            0% {
+                opacity: 0;
+            }
+
+            3% {
+                opacity: 1;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            33% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes travel3 {
+            0% {
+                opacity: 0;
+            }
+
+            3% {
+                opacity: 1;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            33% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes matchGlow {
+
+            0%,
+            55% {
+                stroke: #2B3341;
+            }
+
+            64%,
+            86% {
+                stroke: var(--mint);
+                filter: drop-shadow(0 0 8px rgba(76, 224, 179, 0.55));
+            }
+
+            95%,
+            100% {
+                stroke: #2B3341;
+                filter: none;
+            }
+        }
+
+        @keyframes ring {
+
+            0%,
+            55% {
+                opacity: 0;
+                r: 16;
+            }
+
+            62% {
+                opacity: .9;
+                r: 16;
+            }
+
+            82% {
+                opacity: 0;
+                r: 34;
+            }
+
+            100% {
+                opacity: 0;
+                r: 16;
+            }
+        }
+
+        @keyframes checkIn {
+
+            0%,
+            58% {
+                opacity: 0;
+                transform: scale(.6);
+            }
+
+            68%,
+            88% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            96%,
+            100% {
+                opacity: 0;
+                transform: scale(.6);
+            }
+        }
+
+        .scanner-footer {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            color: var(--text-faint);
+            position: relative;
+            z-index: 1;
+        }
+
+        .scanner-footer b {
+            color: var(--mint);
+            font-weight: 500;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .pulse-dot,
+            .match-node rect,
+            .match-ring,
+            .match-check,
+            .live .blink {
+                animation: none !important;
+            }
+
+            .match-node rect {
+                stroke: var(--mint);
+            }
+
+            .match-check {
+                opacity: 1;
+            }
+        }
+
+        /* ---------- SECTION SHARED ---------- */
+        section {
+            padding: 84px 0;
+        }
+
+        .section-head {
+            max-width: 600px;
+            margin-bottom: 48px;
+        }
+
+        .section-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--violet);
+            margin-bottom: 12px;
+        }
+
+        h2 {
+            font-family: var(--font-display);
             font-weight: 700;
-            margin-bottom: 1rem;
+            font-size: clamp(26px, 3vw, 36px);
+            letter-spacing: -0.015em;
+            color: #F5F7FA;
         }
 
-        .feature-desc {
+        .section-head p {
             color: var(--text-muted);
-            line-height: 1.6;
+            margin-top: 14px;
+            font-size: 15.5px;
         }
 
-        /* Footer */
+        /* ---------- STRIP ---------- */
+        .strip {
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 22px 0;
+            background: var(--bg-elevated);
+        }
+
+        .strip-inner {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            color: var(--text-faint);
+        }
+
+        .strip-inner span {
+            color: var(--text-muted);
+        }
+
+        /* ---------- HOW IT WORKS ---------- */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            counter-reset: step;
+        }
+
+        .step {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-m);
+            padding: 26px;
+            position: relative;
+        }
+
+        .step-num {
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            color: var(--mint);
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .step h3 {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+
+        .step p {
+            color: var(--text-muted);
+            font-size: 14.5px;
+        }
+
+        .step-line {
+            position: absolute;
+            top: 26px;
+            right: -20px;
+            width: 20px;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .step:last-child .step-line {
+            display: none;
+        }
+
+        /* ---------- FEATURES ---------- */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-m);
+            overflow: hidden;
+        }
+
+        .feature {
+            background: var(--bg-elevated);
+            padding: 30px;
+            transition: background .15s ease;
+        }
+
+        .feature:hover {
+            background: var(--surface-2);
+        }
+
+        .feature .icon {
+            width: 36px;
+            height: 36px;
+            margin-bottom: 18px;
+        }
+
+        .feature h3 {
+            font-family: var(--font-display);
+            font-size: 16.5px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* ---------- TECH STACK ---------- */
+        .stack-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: 9px 14px;
+            border-radius: 100px;
+        }
+
+        .chip .sq {
+            width: 7px;
+            height: 7px;
+            border-radius: 2px;
+            background: var(--violet);
+        }
+
+        /* ---------- DOWNLOAD ---------- */
+        .download-card {
+            background: linear-gradient(135deg, rgba(76, 224, 179, 0.08), rgba(139, 127, 240, 0.08)), var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-l);
+            padding: 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+
+        .download-left h2 {
+            margin-bottom: 10px;
+        }
+
+        .download-left p {
+            color: var(--text-muted);
+            font-size: 15px;
+            max-width: 420px;
+        }
+
+        .apk-meta {
+            display: flex;
+            gap: 18px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .apk-meta div {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-faint);
+        }
+
+        .apk-meta div b {
+            display: block;
+            color: var(--text);
+            font-size: 14px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .note {
+            margin-top: 22px;
+            font-size: 13px;
+            color: var(--text-faint);
+            border-left: 2px solid var(--violet);
+            padding-left: 12px;
+            max-width: 440px;
+        }
+
+        /* ---------- FOOTER ---------- */
         footer {
-            border-top: 1px solid var(--card-border);
-            padding: 3rem 0;
-            text-align: center;
-            color: var(--text-muted);
-            margin-top: 4rem;
+            border-top: 1px solid var(--border);
+            padding: 36px 0;
         }
 
-        @media (max-width: 768px) {
-            nav ul {
-                display: none; /* Simple mobile hide */
+        .footer-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .footer-inner .brand {
+            font-size: 14.5px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            color: var(--text-faint);
+            font-size: 13.5px;
+            transition: color .15s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-muted);
+        }
+
+        @media (max-width:920px) {
+            .hero-inner {
+                grid-template-columns: 1fr;
             }
-            .hero {
-                padding: 4rem 0 2rem;
+
+            .steps {
+                grid-template-columns: 1fr;
             }
-            .mockup-container {
-                height: 300px;
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .step-line {
+                display: none;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .download-card {
+                padding: 32px;
             }
         }
     </style>
 </head>
+
 <body>
 
-    <div class="container">
-        <!-- Header -->
-        <header>
-            <a href="#" class="logo-container">
-                <div class="logo-icon">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 19.93C7.05 19.43 4 16.05 4 12C4 7.95 7.05 4.57 11 4.07V19.93ZM13 4.07C14.03 4.2 15 4.52 15.87 5L13 7.87V4.07ZM13 9.28L16.2 6.08C17.13 6.8 17.89 7.72 18.42 8.76L13 14.18V9.28ZM13 15.6L19.38 9.22C19.78 10.1 20 11.03 20 12C20 13.14 19.72 14.21 19.22 15.17L13 21.39V15.6Z"/>
-                    </svg>
-                </div>
-                <div class="logo-text">Auto<span>Review</span></div>
-            </a>
-            <nav>
-                <ul>
-                    <li><a href="#features">Features</a></li>
-                    <li><a href="#how-it-works">How it works</a></li>
-                    <li><a href="https://github.com/nawfumi/autoreview">GitHub</a></li>
-                </ul>
-            </nav>
-        </header>
-
-        <!-- Hero Section -->
-        <section class="hero">
-            <div class="badge">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.5 4.25L15.93 5.82L18.11 8H13.5V10H18.11L15.93 12.18L17.5 13.75L22.25 9L17.5 4.25ZM10.5 14H5.89L8.07 11.82L6.5 10.25L1.75 15L6.5 19.75L8.07 18.18L5.89 16H10.5V14Z"/>
+    <header class="nav">
+        <div class="nav-inner">
+            <div class="brand">
+                <svg class="logo-mark" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="9" fill="#141922" stroke="#232A36" />
+                    <g transform="translate(4,4)">
+                        <path fill="#4CE0B3"
+                            d="M20,9V7c0,-1.1 -0.9,-2 -2,-2h-3c0,-1.66 -1.34,-3 -3,-3S9,3.34 9,5H6C4.9,5 4,5.9 4,7v2c-1.66,0 -3,1.34 -3,3v4c0,1.66 1.34,3 3,3v4c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2v-4c1.66,0 3,-1.34 3,-3v-4C23,10.34 21.66,9 20,9z M7.5,11.5C7.5,10.67 8.17,10 9,10s1.5,0.67 1.5,1.5S9.83,13 9,13S7.5,12.33 7.5,11.5z M16.5,11.5c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5s0.67,1.5 1.5,1.5S16.5,12.33 16.5,11.5z M16,17H8v-2h8V17z" />
+                    </g>
                 </svg>
-                v1.0.0 Now Available
+                AutoReview
             </div>
-            
-            <h1>Smart, Automated<br>Reviews for Android</h1>
-            <p class="hero-subtitle">
-                Supercharge your workflow with the most advanced mobile review engine. Built natively for Android, designed for developers and power users.
-            </p>
-
-            <a href="https://github.com/nawfumi/autoreview/releases/download/v1.0.0/app-release.apk" class="download-btn">
-                <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.59 13.41C17.21 13.03 16.58 13.03 16.2 13.41L13 16.61V5C13 4.45 12.55 4 12 4C11.45 4 11 4.45 11 5V16.61L7.8 13.41C7.42 13.03 6.79 13.03 6.41 13.41C6.02 13.79 6.02 14.42 6.41 14.81L11.3 19.7C11.69 20.09 12.32 20.09 12.71 19.7L17.6 14.81C17.98 14.42 17.98 13.79 17.59 13.41Z"/>
+            <nav class="nav-links">
+                <a href="#how">How it works</a>
+                <a href="#features">Features</a>
+                <a href="#stack">Tech stack</a>
+                <a href="https://github.com/nawfumi/autoreview" target="_blank" rel="noopener">GitHub</a>
+            </nav>
+            <a class="nav-cta" href="https://github.com/nawfumi/autoreview/releases/download/v1.0.0/app-release.apk">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5" stroke="#06120D" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 19h14" stroke="#06120D" stroke-width="2" stroke-linecap="round" />
                 </svg>
                 Download APK
             </a>
-            <div class="version-info">Requires Android 8.0+ • 15 MB</div>
+        </div>
+    </header>
 
-            <!-- Tech Graphic -->
-            <div class="mockup-container">
-                <div class="mockup-glow"></div>
-                <div class="code-snippet">
-<pre><code>// AutoReview Initialization
-class CoreEngine {
-    fun initialize(context: Context) {
-        ReviewManager.start(
-            config = Config.Builder()
-                .enableAIAnalysis(true)
-                .setMode(Mode.TURBO)
-                .build()
-        )
-        Logger.d("Engine", "Systems online.")
-    }
-}</code></pre>
+    <main>
+        <section class="hero">
+            <div class="wrap hero-inner">
+                <div>
+                    <div class="eyebrow"><span class="dot"></span> AccessibilityService · Android</div>
+                    <h1>It reads the screen<br>so you don't <span class="accent">tap</span> it.</h1>
+                    <p class="lead">AutoReview walks the on-screen UI tree, fuzzy-matches the control you're after by
+                        its text, and taps it for you — no coordinates, no screen recordings, no guesswork. Built for
+                        the parts of Android automation that break every other approach:
+                        <code>AccessibilityNodeInfo</code>, not pixel positions.</p>
+                    <div class="hero-actions">
+                        <a class="btn-primary"
+                            href="https://github.com/nawfumi/autoreview/releases/download/v1.0.0/app-release.apk">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5" stroke="#06120D" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M5 19h14" stroke="#06120D" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            Download v1.0.0 APK
+                        </a>
+                        <a class="btn-secondary" href="#how">
+                            See how it works
+                        </a>
+                    </div>
+                    <div class="hero-meta">
+                        <span>Android 8.0+</span>
+                        <span class="sep"></span>
+                        <span>Sideload · not on Play Store</span>
+                        <span class="sep"></span>
+                        <span>Kotlin</span>
+                    </div>
+                </div>
+
+                <div class="scanner-card">
+                    <div class="scanner-topbar">
+                        <span>ui_tree_traversal.log</span>
+                        <span class="live"><span class="blink"></span>scanning</span>
+                    </div>
+
+                    <svg id="tree" viewBox="0 0 380 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- edges -->
+                        <path class="tree-edge" d="M190 30 V55 M190 55 H70 V80 M190 55 H310 V80" />
+                        <path class="tree-edge" d="M70 100 V125 M70 125 H35 V150 M70 125 H105 V150" />
+                        <path class="tree-edge" d="M310 100 V125 M310 125 H275 V150 M310 125 H345 V150" />
+
+                        <!-- root -->
+                        <g>
+                            <rect class="tree-node-bg" x="150" y="14" width="80" height="20" rx="5" />
+                            <text class="tree-node-label" x="190" y="27" text-anchor="middle">FlutterView</text>
+                        </g>
+
+                        <!-- level 2 -->
+                        <g>
+                            <rect class="tree-node-bg" x="32" y="80" width="76" height="20" rx="5" />
+                            <text class="tree-node-label" x="70" y="93" text-anchor="middle">semantics:12</text>
+                        </g>
+                        <g>
+                            <rect class="tree-node-bg" x="272" y="80" width="76" height="20" rx="5" />
+                            <text class="tree-node-label" x="310" y="93" text-anchor="middle">semantics:18</text>
+                        </g>
+
+                        <!-- level 3 leaves -->
+                        <g>
+                            <rect class="tree-node-bg" x="4" y="150" width="62" height="20" rx="5" />
+                            <text class="tree-node-label" x="35" y="163" text-anchor="middle">"Cancel"</text>
+                        </g>
+                        <g>
+                            <rect class="tree-node-bg" x="74" y="150" width="62" height="20" rx="5" />
+                            <text class="tree-node-label" x="105" y="163" text-anchor="middle">"Rate app"</text>
+                        </g>
+                        <g>
+                            <rect class="tree-node-bg" x="244" y="150" width="62" height="20" rx="5" />
+                            <text class="tree-node-label" x="275" y="163" text-anchor="middle">"Skip"</text>
+                        </g>
+
+                        <!-- matched target node -->
+                        <g class="match-node">
+                            <circle class="match-ring" cx="345" cy="160" r="16" fill="none" stroke="#4CE0B3"
+                                stroke-width="1.5" opacity="0" />
+                            <rect x="314" y="150" width="62" height="20" rx="5" fill="#141922" stroke="#2B3341"
+                                stroke-width="1.4" />
+                            <text class="tree-node-label" x="345" y="163" text-anchor="middle"
+                                fill="#4CE0B3">"Submit"</text>
+                            <path class="match-check" d="M368 148 l3 3 l6 -6" stroke="#4CE0B3" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" fill="none"
+                                transform="translate(-2,-2)" />
+                        </g>
+
+                        <!-- traveling pulse dots along the path to the match -->
+                        <circle class="pulse-dot n1" cx="190" cy="24" r="4" />
+                        <circle class="pulse-dot n2" cx="310" cy="90" r="4" />
+                        <circle class="pulse-dot n3" cx="345" cy="160" r="4" />
+                    </svg>
+
+                    <div class="scanner-footer">
+                        <span>nodes visited: <b>47</b></span>
+                        <span>match confidence: <b>0.94</b></span>
+                        <span>action: <b>CLICK</b></span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Features -->
-        <section class="features" id="features">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.22 1.76-.61 2.53l2.25 1.3c.75-1.12 1.21-2.43 1.32-3.83h3.04c-.13 5.37-4.49 9.73-9.86 9.86v3.04c-1.4-.11-2.71-.57-3.83-1.32l1.3-2.25c.77.39 1.63.61 2.53.61 3.53 0 6.43-2.61 6.92-6h-3.03c-.34 2.22-2.14 4.02-4.36 4.36v-3.03c-1.12-.34-2.1-.96-2.83-1.78l1.7-1.7c.43.43.94.75 1.5.95v-3.01c-.56-.2-1.07-.52-1.5-.95l-1.7 1.7c-.82-.73-1.44-1.71-1.78-2.83h3.03c.34-2.22 2.14-4.02 4.36-4.36V2.05c-5.37.13-9.73 4.49-9.86 9.86H2.05C2.18 6.54 6.54 2.18 11.91 2.05h1.09zM12 8c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4z"/>
-                    </svg>
-                </div>
-                <h3 class="feature-title">Native Android Tech</h3>
-                <p class="feature-desc">Built purely with Kotlin and Jetpack Compose. Lightning fast performance and a tiny footprint, designed specifically for the Android ecosystem.</p>
+        <div class="strip">
+            <div class="wrap strip-inner">
+                <div>Written in <span>Kotlin</span>, targeting the <span>AccessibilityService</span> API</div>
+                <div>Matches by <span>fuzzy text</span>, never by screen coordinates</div>
+                <div>Distributed as a signed <span>sideload APK</span> via GitHub Releases</div>
             </div>
+        </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z"/>
-                    </svg>
+        <section id="how">
+            <div class="wrap">
+                <div class="section-head">
+                    <div class="section-eyebrow">How it works</div>
+                    <h2>Three steps, no scripting required</h2>
+                    <p>AutoReview runs as a background accessibility service. Once it's granted permission, it watches
+                        the screen you're on and acts only when it finds what it's looking for.</p>
                 </div>
-                <h3 class="feature-title">Seamless Automation</h3>
-                <p class="feature-desc">Define rules, set up triggers, and let AutoReview handle the heavy lifting. Advanced algorithms ensure precision and speed.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-                    </svg>
+                <div class="steps">
+                    <div class="step">
+                        <span class="step-num">01</span>
+                        <h3>Grant accessibility access</h3>
+                        <p>Turn on the AutoReview service in Android's Accessibility settings. This is what lets it read
+                            the on-screen UI tree — nothing more.</p>
+                        <div class="step-line"></div>
+                    </div>
+                    <div class="step">
+                        <span class="step-num">02</span>
+                        <h3>Open the target app</h3>
+                        <p>Launch the app you want to automate. AutoReview stays idle in the background until it detects
+                            a matching screen.</p>
+                        <div class="step-line"></div>
+                    </div>
+                    <div class="step">
+                        <span class="step-num">03</span>
+                        <h3>It scans, matches, taps</h3>
+                        <p>The service walks the node tree, fuzzy-matches the target label, and dispatches the tap —
+                            even if the layout shifts between versions.</p>
+                    </div>
                 </div>
-                <h3 class="feature-title">Bank-Grade Security</h3>
-                <p class="feature-desc">All processes happen locally on your device. Zero telemetry, open-source codebase, and strictly sandboxed execution.</p>
             </div>
         </section>
 
-        <!-- Footer -->
-        <footer>
-            <p>&copy; 2026 AutoReview Project. Open source and free forever.</p>
-        </footer>
-    </div>
+        <section id="features">
+            <div class="wrap">
+                <div class="section-head">
+                    <div class="section-eyebrow">Built for reliability</div>
+                    <h2>Coordinates break. Node trees don't.</h2>
+                    <p>Most "auto-tap" tools record x/y positions and replay them blind. AutoReview reads the actual
+                        accessibility tree, so it keeps working across resolutions, densities, and layout changes.</p>
+                </div>
+                <div class="features">
+                    <div class="feature">
+                        <svg class="icon" viewBox="0 0 36 36" fill="none">
+                            <circle cx="18" cy="18" r="15" stroke="#4CE0B3" stroke-width="1.6" />
+                            <path d="M12 18l4 4l8-8" stroke="#4CE0B3" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <h3>Fuzzy text matching</h3>
+                        <p>Finds the right control even when labels vary slightly across app updates or locales.</p>
+                    </div>
+                    <div class="feature">
+                        <svg class="icon" viewBox="0 0 36 36" fill="none">
+                            <circle cx="18" cy="8" r="3" stroke="#8B7FF0" stroke-width="1.6" />
+                            <circle cx="9" cy="28" r="3" stroke="#8B7FF0" stroke-width="1.6" />
+                            <circle cx="27" cy="28" r="3" stroke="#8B7FF0" stroke-width="1.6" />
+                            <path d="M18 11v6M18 17l-9 8M18 17l9 8" stroke="#8B7FF0" stroke-width="1.4" />
+                        </svg>
+                        <h3>Node-tree traversal</h3>
+                        <p>Walks <code style="font-family:var(--font-mono);color:#8B7FF0;">AccessibilityNodeInfo</code>
+                            directly — never taps a blind coordinate.</p>
+                    </div>
+                    <div class="feature">
+                        <svg class="icon" viewBox="0 0 36 36" fill="none">
+                            <rect x="6" y="6" width="24" height="24" rx="6" stroke="#4CE0B3" stroke-width="1.6" />
+                            <path d="M13 18h10M18 13v10" stroke="#4CE0B3" stroke-width="1.6" stroke-linecap="round" />
+                        </svg>
+                        <h3>Runs quietly in the background</h3>
+                        <p>A lightweight foreground-safe service that only steps in when it finds a match on screen.</p>
+                    </div>
+                    <div class="feature">
+                        <svg class="icon" viewBox="0 0 36 36" fill="none">
+                            <path d="M18 5l11 6v10l-11 6l-11-6V11z" stroke="#8B7FF0" stroke-width="1.6"
+                                stroke-linejoin="round" />
+                            <path d="M18 18v10M18 18l11-6M18 18L7 12" stroke="#8B7FF0" stroke-width="1.4" />
+                        </svg>
+                        <h3>Sideload-ready signing</h3>
+                        <p>Every release is signed and shipped through GitHub Releases — install directly, no store
+                            review wait.</p>
+                    </div>
+                    <div class="feature">
+                        <svg class="icon" viewBox="0 0 36 36" fill="none">
+                            <path d="M18 4l14 6v8c0 8-6 13-14 14C10 31 4 26 4 18v-8z" stroke="#4CE0B3"
+                                stroke-width="1.6" stroke-linejoin="round" />
+                            <path d="M13 18l3.5 3.5L23 14" stroke="#4CE0B3" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <h3>Nothing leaves the device</h3>
+                        <p>No screen recording, no network calls to a server, no data collection. The tree stays local.
+                        </p>
+                    </div>
+                    <div class="feature">
+                        <svg class="icon" viewBox="0 0 36 36" fill="none">
+                            <path d="M6 18a12 12 0 1 1 6 10.4" stroke="#8B7FF0" stroke-width="1.6"
+                                stroke-linecap="round" />
+                            <path d="M6 12v6h6" stroke="#8B7FF0" stroke-width="1.6" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <h3>Retries, not failures</h3>
+                        <p>Missed a match on a slow-loading screen? It re-scans instead of giving up.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="stack">
+            <div class="wrap">
+                <div class="section-head">
+                    <div class="section-eyebrow">Under the hood</div>
+                    <h2>Plain Android, no black boxes</h2>
+                </div>
+                <div class="stack-row">
+                    <span class="chip"><span class="sq"></span>Kotlin</span>
+                    <span class="chip"><span class="sq"></span>AccessibilityService API</span>
+                    <span class="chip"><span class="sq"></span>Jetpack</span>
+                    <span class="chip"><span class="sq"></span>GitHub Actions CI/CD</span>
+                    <span class="chip"><span class="sq"></span>Signed release builds</span>
+                    <span class="chip"><span class="sq"></span>GitHub Releases distribution</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="download">
+            <div class="wrap">
+                <div class="download-card">
+                    <div class="download-left">
+                        <h2>Get the latest build</h2>
+                        <p>Download the signed APK directly from GitHub Releases and install it on your device.</p>
+                        <div class="apk-meta">
+                            <div><b>v1.0.0</b>release</div>
+                            <div><b>Android 8.0+</b>minimum OS</div>
+                            <div><b>.apk</b>direct install</div>
+                        </div>
+                        <p class="note">Sideloaded apps aren't from the Play Store, so Android will ask you to allow
+                            installs from this source the first time. That's expected.</p>
+                    </div>
+                    <a class="btn-primary" style="padding:16px 26px; font-size:16px;"
+                        href="https://github.com/nawfumi/autoreview/releases/download/v1.0.0/app-release.apk">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5" stroke="#06120D" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M5 19h14" stroke="#06120D" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                        Download app-release.apk
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap footer-inner">
+            <div class="brand">
+                <svg class="logo-mark" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="9" fill="#141922" stroke="#232A36" />
+                    <g transform="translate(4,4)">
+                        <path fill="#4CE0B3"
+                            d="M20,9V7c0,-1.1 -0.9,-2 -2,-2h-3c0,-1.66 -1.34,-3 -3,-3S9,3.34 9,5H6C4.9,5 4,5.9 4,7v2c-1.66,0 -3,1.34 -3,3v4c0,1.66 1.34,3 3,3v4c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2v-4c1.66,0 3,-1.34 3,-3v-4C23,10.34 21.66,9 20,9z M7.5,11.5C7.5,10.67 8.17,10 9,10s1.5,0.67 1.5,1.5S9.83,13 9,13S7.5,12.33 7.5,11.5z M16.5,11.5c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5s0.67,1.5 1.5,1.5S16.5,12.33 16.5,11.5z M16,17H8v-2h8V17z" />
+                    </g>
+                </svg>
+                AutoReview
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/nawfumi/autoreview" target="_blank" rel="noopener">GitHub</a>
+                <a href="#how">How it works</a>
+                <a href="#features">Features</a>
+            </div>
+        </div>
+    </footer>
 
 </body>
+
 </html>
