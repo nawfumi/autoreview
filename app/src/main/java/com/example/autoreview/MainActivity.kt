@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -155,9 +154,6 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
             PresetSettingsScreen(
                 config = config,
                 onConfigChanged = { viewModel.saveConfig(it) },
-                onSeedFromScan = {
-                    Toast.makeText(context, "Phase 4 - Not Implemented", Toast.LENGTH_SHORT).show()
-                },
                 onBack = { currentScreen = Screen.MAIN }
             )
         }

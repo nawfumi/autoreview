@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.isActive
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +45,7 @@ fun LogsScreen(
     LaunchedEffect(Unit) {
         while (isActive) {
             loadLogs()
-            kotlinx.coroutines.delay(2000)
+            kotlinx.coroutines.delay(2000.milliseconds)
         }
     }
 

@@ -18,7 +18,6 @@ import com.example.autoreview.data.UnrecognizedPolicy
 fun PresetSettingsScreen(
     config: PresetConfig,
     onConfigChanged: (PresetConfig) -> Unit,
-    onSeedFromScan: () -> Unit,
     onBack: () -> Unit
 ) {
     var localConfig by remember(config) { mutableStateOf(config) }
@@ -241,12 +240,6 @@ fun PresetSettingsScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    OutlinedButton(
-                        onClick = onSeedFromScan,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Seed from Live Scan")
-                    }
                 }
             }
 
