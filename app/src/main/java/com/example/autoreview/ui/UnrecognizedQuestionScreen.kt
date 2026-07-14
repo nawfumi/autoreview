@@ -21,11 +21,7 @@ fun UnrecognizedQuestionScreen(
     var yesNo by remember { mutableStateOf<Boolean?>(null) }
     var isBinary by remember { mutableStateOf(false) }
 
-    Scaffold(
-        bottomBar = {
-            BannerAdView(adUnitId = "0ddc0xxzq2u7swcx")
-        }
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

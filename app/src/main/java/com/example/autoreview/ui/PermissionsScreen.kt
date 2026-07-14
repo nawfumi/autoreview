@@ -101,11 +101,7 @@ fun PermissionsScreen(
 
     val allGranted = permissions.all { it.isGranted() }
 
-    Scaffold(
-        bottomBar = {
-            BannerAdView(adUnitId = "0ddc0xxzq2u7swcx")
-        }
-    ) { padding ->
+    Scaffold { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -165,9 +161,7 @@ fun PermissionsScreen(
                     }
                 }
             }
-            if (perm.title == "Display Over Other Apps") {
-                NativeAdViewComposable(adUnitId = "i31n81wo0yf37eeg")
-            }
+
         }
 
         Spacer(Modifier.height(24.dp))

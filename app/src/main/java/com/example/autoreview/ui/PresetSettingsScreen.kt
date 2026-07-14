@@ -26,11 +26,7 @@ fun PresetSettingsScreen(
 
     fun save() = onConfigChanged(localConfig)
 
-    Scaffold(
-        bottomBar = {
-            BannerAdView(adUnitId = "0ddc0xxzq2u7swcx")
-        }
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -92,7 +88,7 @@ fun PresetSettingsScreen(
                 }
             }
 
-            NativeAdViewComposable(adUnitId = "i31n81wo0yf37eeg")
+
 
             // Unrecognized Question Policy
             Card(modifier = Modifier.fillMaxWidth()) {
