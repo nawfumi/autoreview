@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.example.autoreview",
+  "applicationId": "com.nawfumi.autoreview",
   "variantName": "release",
   "elements": [
     {

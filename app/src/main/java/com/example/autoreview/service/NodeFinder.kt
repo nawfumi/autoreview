@@ -289,22 +289,50 @@ object NodeFinder {
         return node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
     }
 
+    fun performScrollBackward(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        return node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+    }
+
     /**
-     * Gesture-based scroll fallback for devices where ACTION_SCROLL_FORWARD doesn't work.
+     * Gesture-based scroll with an explicitly controlled distance.
+     *
+     * [fraction] is the portion of the (container or screen) height the content moves per swipe.
+     * A value < 1.0 (e.g. 0.5) produces *overlapping* scrolls so a question card sitting on the
+     * fold is guaranteed to become fully visible in at least one snapshot instead of being jumped
+     * over by a full-page scroll. This is what makes discovery reliable on any screen size.
+     *
+     * When [containerRect] is provided the swipe stays inside the scrollable list bounds, avoiding
+     * system gesture areas (status/nav bars).
      */
-    fun performGestureScroll(service: AccessibilityService, screenHeight: Int, screenWidth: Int, forward: Boolean = true): Boolean {
-        val centerX = screenWidth / 2f
+    fun performGestureScroll(
+        service: AccessibilityService,
+        screenHeight: Int,
+        screenWidth: Int,
+        forward: Boolean = true,
+        fraction: Float = 0.5f,
+        containerRect: Rect? = null
+    ): Boolean {
+        val area = if (containerRect != null && !containerRect.isEmpty) {
+            containerRect
+        } else {
+            Rect(0, 0, screenWidth, screenHeight)
+        }
+
+        val centerX = area.centerX().toFloat()
+        val midY = area.centerY().toFloat()
+        val travel = (area.height() * fraction.coerceIn(0.1f, 0.95f)) / 2f
+
         val startY: Float
         val endY: Float
-        
         if (forward) {
-            startY = screenHeight * 0.75f
-            endY = screenHeight * 0.25f
+            startY = midY + travel
+            endY = midY - travel
         } else {
-            startY = screenHeight * 0.25f
-            endY = screenHeight * 0.75f
+            startY = midY - travel
+            endY = midY + travel
         }
-        
+
         val path = Path().apply {
             moveTo(centerX, startY)
             lineTo(centerX, endY)
@@ -312,7 +340,7 @@ object NodeFinder {
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
             .build()
-        
+
         return service.dispatchGesture(gesture, null, null)
     }
 
@@ -334,17 +362,15 @@ object NodeFinder {
         var actionClickSuccess = false
         var depth = 0
         while (current != null && depth < 10) {
-            val isClickable = current.isClickable
-            AppLogger.d(logTag, "  -> Checking depth=$depth: class='${current.className}' isClickable=$isClickable")
+            AppLogger.d(logTag, "  -> Checking depth=$depth: class='${current.className}' isClickable=${current.isClickable}")
             
-            if (isClickable) {
-                actionClickSuccess = current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                AppLogger.d(logTag, "  -> ACTION_CLICK at depth=$depth returned: $actionClickSuccess")
-                if (actionClickSuccess) {
-                    if (!first) current.recycle()
-                    break
-                }
+            actionClickSuccess = current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            AppLogger.d(logTag, "  -> ACTION_CLICK at depth=$depth returned: $actionClickSuccess")
+            if (actionClickSuccess) {
+                if (!first) current.recycle()
+                break
             }
+            
             val parent = current.parent
             if (!first) current.recycle()
             current = parent
@@ -366,9 +392,10 @@ object NodeFinder {
         if (!rect.isEmpty && rect.centerX() > 0 && rect.centerY() > 0) {
             val path = Path().apply {
                 moveTo(rect.centerX().toFloat(), rect.centerY().toFloat())
+                lineTo(rect.centerX().toFloat(), rect.centerY().toFloat() + 1f)
             }
             val gesture = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 120))
+                .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
                 .build()
             
             val dispatched = service.dispatchGesture(gesture, null, null)

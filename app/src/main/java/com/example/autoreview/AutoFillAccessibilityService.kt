@@ -8,7 +8,9 @@ import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
+import com.example.autoreview.data.PresetConfig
 import com.example.autoreview.data.PresetRepository
+import com.example.autoreview.service.DiscoveredQuestion
 import com.example.autoreview.service.NodeFinder
 import com.example.autoreview.service.QuestionType
 import com.example.autoreview.util.AppLogger
@@ -147,149 +149,47 @@ class AutoFillAccessibilityService : AccessibilityService() {
             return@withContext
         }
 
-        // Simple text-based tracking — strip number prefix so "1\nStarts class..." 
-        // and "Starts class..." are treated as the same question
+        // Tracking: which questions were answered (text, number-stripped) and their assigned
+        // numbers, so we can detect any number that was skipped on a given screen size and
+        // recover it afterwards.
         val answered = mutableSetOf<String>()
-        var scrollAttempts = 0
+        val answeredNums = mutableSetOf<Int>()
+        var maxNumSeen = 0
 
-        // === MAIN LOOP: discover → click → scroll → repeat ===
-        while (isActive && !shouldStop.get()) {
-            root.recycle()
-            root = waitForRoot()
-            
-            // Check for submit button — if visible, we're done with questions
-            val earlySubmit = NodeFinder.findEnabledSubmit(root)
-            if (earlySubmit != null && answered.isNotEmpty()) {
-                AppLogger.d(TAG, "Submit button visible! Clicking immediately...")
-                NodeFinder.performClickOnNodeOrParent(earlySubmit, this@AutoFillAccessibilityService, TAG)
-                earlySubmit.recycle()
-                updateState(OverlayService.AutomationState.DONE)
-                AppLogger.d(TAG, "Automation finished (${answered.size} questions)")
-                logHistory(true, "Completed review (${answered.size} questions)")
-                return@withContext
-            }
-            earlySubmit?.recycle()
-            
-            val discovered = NodeFinder.discoverQuestionCards(root)
-            val unhandled = discovered.filter { stripNumberPrefix(it.questionText) !in answered }
-            
-            AppLogger.d(TAG, "Discovered ${discovered.size} questions, ${unhandled.size} unhandled, scrollAttempts=$scrollAttempts")
+        // === PASS 1: Fast native scan ===
+        val pass1 = forwardScan(
+            answered = answered,
+            answeredNums = answeredNums,
+            maxNumSeen = { n -> if (n > maxNumSeen) maxNumSeen = n },
+            useNativeScroll = true,
+            config = config,
+            screenHeight = screenHeight,
+            screenWidth = screenWidth
+        )
 
-            // Clean up already-answered
-            discovered.filter { stripNumberPrefix(it.questionText) in answered }.forEach {
-                it.interactiveNodes.forEach { n -> n.recycle() }
-                it.cardRoot.recycle()
-            }
-
-            val container = NodeFinder.findScrollableContainer(root)
-            val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
-            
-            val safeUnhandled = unhandled.filter { q ->
-                q.interactiveNodes.all { node ->
-                    NodeFinder.isNodeVisible(node, if (containerRect.isEmpty) null else containerRect, screenHeight, screenWidth)
-                }
-            }
-
-            if (safeUnhandled.isEmpty()) {
-                if (unhandled.isEmpty()) {
-                    AppLogger.d(TAG, "No unhandled questions. Scrolling forward (attempt $scrollAttempts)")
-                } else {
-                    AppLogger.d(TAG, "Questions found but not fully visible. Scrolling forward (attempt $scrollAttempts)")
-                }
-                var scrolled = NodeFinder.performScrollForward(container)
-                if (!scrolled) {
-                    scrolled = NodeFinder.performGestureScroll(this@AutoFillAccessibilityService, screenHeight, screenWidth, forward = true)
-                }
-                container?.recycle()
-                if (!scrolled || scrollAttempts > 15) {
-                    if (unhandled.isNotEmpty()) {
-                        AppLogger.d(TAG, "Cannot scroll anymore, processing remaining questions as fallback.")
-                    } else {
-                        AppLogger.d(TAG, "Reached end of list.")
-                        break
-                    }
-                } else {
-                    scrollAttempts++
-                    delayScaled(100..250, config.automationSpeed)
-                    continue
-                }
-            } else {
-                container?.recycle()
-            }
-            scrollAttempts = 0
-
-            val toProcess = safeUnhandled.ifEmpty { unhandled }
-            for (q in toProcess) {
-                if (!isActive || shouldStop.get()) {
-                    unhandled.forEach { uq -> 
-                        uq.interactiveNodes.forEach { it.recycle() }
-                        uq.cardRoot.recycle()
-                    }
-                    return@withContext
-                }
-                
-                q.cardRoot.recycle()
-                var preset = com.example.autoreview.service.QuestionMatcher.bestMatch(q.questionText, config.questions)
-                
-                if (preset == null) {
-                    if (config.unrecognizedPolicy == com.example.autoreview.data.UnrecognizedPolicy.ASK_USER) {
-                        AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Asking user for mapping.")
-                        shouldStop.set(true)
-                        val intent = Intent(this@AutoFillAccessibilityService, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                            putExtra("unrecognized_question", q.questionText)
-                        }
-                        startActivity(intent)
-                        updateState(OverlayService.AutomationState.IDLE)
-                        logHistory(false, "Paused for unrecognized question")
-                        
-                        unhandled.forEach { uq -> 
-                            uq.interactiveNodes.forEach { n -> n.recycle() }
-                            uq.cardRoot.recycle()
-                        }
-                        return@withContext
-                    } else {
-                        AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Using defaults.")
-                        preset = com.example.autoreview.data.QuestionPreset(
-                            questionTextKey = q.questionText,
-                            starValue = config.defaultStarRating,
-                            yesNo = (config.defaultBinaryChoice == "Yes")
-                        )
-                    }
-                }
-
-                if (q.type == QuestionType.STAR_RATING) {
-                    val stars = q.interactiveNodes
-                    val starVal = preset.starValue ?: config.defaultStarRating
-                    if (stars.size == 5 && starVal in 1..5) {
-                        AppLogger.d(TAG, "Clicking star $starVal for: ${q.questionText.take(50)}")
-                        NodeFinder.performClickOnNodeOrParent(stars[starVal - 1], this@AutoFillAccessibilityService, TAG)
-                        delayScaled(100..200, config.automationSpeed)
-                    }
-                } else if (q.type == QuestionType.YES_NO) {
-                    val yesNo = q.interactiveNodes
-                    val choice = preset.yesNo ?: (config.defaultBinaryChoice == "Yes")
-                    if (yesNo.size == 2) {
-                        val target = if (choice) yesNo[0] else yesNo[1]
-                        AppLogger.d(TAG, "Clicking ${if (choice) "Yes" else "No"} for: ${q.questionText.take(50)}")
-                        NodeFinder.performClickOnNodeOrParent(target, this@AutoFillAccessibilityService, TAG)
-                        delayScaled(100..200, config.automationSpeed)
-                    }
-                }
-                
-                q.interactiveNodes.forEach { it.recycle() }
-                answered.add(stripNumberPrefix(q.questionText))
-            }
+        // === PASS 2: recovery — backward search ===
+        val missing = if (maxNumSeen > 0) (1..maxNumSeen).filter { it !in answeredNums } else emptyList()
+        val needsRecovery = !shouldStop.get() && (missing.isNotEmpty() || (!pass1.submitVisible && answered.isNotEmpty()))
+        if (needsRecovery) {
+            AppLogger.i(TAG, "Recovery pass: ${missing.size} question(s) missing (${missing.joinToString()}), submitVisible=${pass1.submitVisible}; searching backward.")
+            reverseSearch(
+                missing = missing,
+                submitVisible = pass1.submitVisible,
+                answered = answered,
+                answeredNums = answeredNums,
+                maxNumSeen = { n -> if (n > maxNumSeen) maxNumSeen = n },
+                config = config,
+                screenHeight = screenHeight,
+                screenWidth = screenWidth
+            )
         }
-        
+
         if (shouldStop.get()) return@withContext
 
-        // === SUBMIT FALLBACK: only reached if submit wasn't found during main loop ===
-        AppLogger.d(TAG, "Submit not found during main loop, scrolling to find it...")
-        for (i in 1..5) {
+        // === SUBMIT (scroll down to locate the button) ===
+        repeat(15) {
             root.recycle()
             root = waitForRoot()
-            
             val submitBtn = NodeFinder.findEnabledSubmit(root)
             if (submitBtn != null) {
                 AppLogger.d(TAG, "Found Submit button, clicking...")
@@ -300,16 +200,330 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 logHistory(true, "Completed review (${answered.size} questions)")
                 return@withContext
             }
-            
-            val scrollContainer = NodeFinder.findScrollableContainer(root)
-            NodeFinder.performScrollForward(scrollContainer)
-            scrollContainer?.recycle()
-            delayScaled(150L, config.automationSpeed)
+            val sc = NodeFinder.findScrollableContainer(root)
+            val containerRect = android.graphics.Rect().apply { sc?.getBoundsInScreen(this) }
+            val scrolled = NodeFinder.performScrollForward(sc)
+            var gestureUsed = false
+            if (!scrolled) {
+                NodeFinder.performGestureScroll(
+                    this@AutoFillAccessibilityService, screenHeight, screenWidth,
+                    forward = true, fraction = 0.5f,
+                    containerRect = if (containerRect.isEmpty) null else containerRect
+                )
+                gestureUsed = true
+            }
+            sc?.recycle()
+            delayScaled(if (gestureUsed) 400L else 150L, config.automationSpeed)
         }
-        
+
         AppLogger.e(TAG, "Submit button not found")
         updateState(OverlayService.AutomationState.ERROR)
         logHistory(false, "Submit not found (${answered.size} answered)")
+    }
+
+    private enum class AnswerOutcome { OK, NEEDS_USER, STOP }
+
+    private data class ScanResult(
+        val submitVisible: Boolean,
+        val endNoGaps: Boolean,
+        val needsUser: Boolean,
+        val stopped: Boolean
+    )
+
+    private fun extractQuestionNumber(text: String): Int? {
+        val m = Regex("^\\s*(\\d+)").find(text)
+        return m?.groupValues?.get(1)?.toIntOrNull()
+    }
+
+    /**
+     * Searches backward (upwards) to find any skipped questions.
+     * Stops when the missing list is empty, or after a few scrolls if checking the bottom edge.
+     */
+    private suspend fun reverseSearch(
+        missing: List<Int>,
+        submitVisible: Boolean,
+        answered: MutableSet<String>,
+        answeredNums: MutableSet<Int>,
+        maxNumSeen: (Int) -> Unit,
+        config: PresetConfig,
+        screenHeight: Int,
+        screenWidth: Int
+    ) {
+        var currentMissing = missing.toMutableList()
+        var stagnantCount = 0
+        var lastSig = ""
+        var iter = 0
+        var unhandledFound = false
+
+        // If we only miss the trailing questions (missing is empty but submit was not found), 
+        // we'll scroll up a few times to see if they were hidden in the fold.
+        val searchLimit = if (currentMissing.isEmpty()) 4 else 50
+
+        while (!shouldStop.get()) {
+            if (++iter > searchLimit) {
+                AppLogger.d(TAG, "Reverse search reached iter limit ($searchLimit).")
+                break
+            }
+            
+            val root = waitForRoot()
+            val discovered = NodeFinder.discoverQuestionCards(root)
+            val sig = discovered.map { stripNumberPrefix(it.questionText) }.sorted().joinToString("|")
+            
+            if (sig != lastSig) { lastSig = sig; stagnantCount = 0 } else stagnantCount++
+            
+            val unhandled = discovered.filter { stripNumberPrefix(it.questionText) !in answered }
+            
+            if (unhandled.isNotEmpty()) {
+                unhandledFound = true
+                val container = NodeFinder.findScrollableContainer(root)
+                val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+                val safeUnhandled = unhandled.filter { q ->
+                    q.interactiveNodes.all { node ->
+                        NodeFinder.isNodeVisible(node, if (containerRect.isEmpty) null else containerRect, screenHeight, screenWidth)
+                    }
+                }
+                val toProcess = safeUnhandled.ifEmpty { unhandled }
+                val r = processQuestions(toProcess, answered, answeredNums, maxNumSeen, config)
+                container?.recycle()
+                
+                if (r != AnswerOutcome.OK) {
+                    root.recycle()
+                    return
+                }
+                
+                currentMissing = currentMissing.filter { it !in answeredNums }.toMutableList()
+            }
+
+            if (currentMissing.isEmpty() && (submitVisible || unhandledFound)) {
+                // We found what we needed!
+                root.recycle()
+                AppLogger.i(TAG, "Reverse search completed successfully.")
+                return
+            }
+
+            if (stagnantCount >= 3) {
+                root.recycle()
+                AppLogger.w(TAG, "Reverse search stagnated.")
+                return
+            }
+
+            val container = NodeFinder.findScrollableContainer(root)
+            val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+            NodeFinder.performGestureScroll(
+                this@AutoFillAccessibilityService, screenHeight, screenWidth,
+                forward = false, fraction = 0.5f,
+                containerRect = if (containerRect.isEmpty) null else containerRect
+            )
+            container?.recycle()
+            root.recycle()
+            delayScaled(400..500, config.automationSpeed)
+        }
+    }
+
+    /**
+     * Core discovery → click → scroll loop.
+     *
+     * When [overlap] is false, it scrolls a full page at a time (fast, normal behaviour used by
+     * PASS 1). When [overlap] is true, it scrolls by half the container height so every card
+     * becomes fully visible in at least one snapshot — this is what makes PASS 2 reliably catch
+     * questions that were jumped over on a smaller screen.
+     *
+     * End-of-list is detected by stagnation (the visible set stops changing), which works for any
+     * screen size and any scroll distance.
+     */
+    private suspend fun forwardScan(
+        answered: MutableSet<String>,
+        answeredNums: MutableSet<Int>,
+        maxNumSeen: (Int) -> Unit,
+        useNativeScroll: Boolean,
+        config: PresetConfig,
+        screenHeight: Int,
+        screenWidth: Int
+    ): ScanResult {
+        var scrollAttempts = 0
+        var stagnant = 0
+        var lastSig = ""
+        var iter = 0
+
+        while (!shouldStop.get()) {
+            if (++iter > 250) break
+            val root = waitForRoot()
+
+            val submit = NodeFinder.findEnabledSubmit(root)
+            val submitVisible = submit != null
+            submit?.recycle()
+            if (submitVisible && answered.isNotEmpty()) {
+                // Submit is enabled only once the app considers everything answered.
+                root.recycle()
+                return ScanResult(submitVisible = true, endNoGaps = true, needsUser = false, stopped = false)
+            }
+
+            val discovered = NodeFinder.discoverQuestionCards(root)
+            val unhandled = discovered.filter { stripNumberPrefix(it.questionText) !in answered }
+            val container = NodeFinder.findScrollableContainer(root)
+
+            val sig = unhandled.joinToString { it.questionText.take(15) }
+            if (sig == lastSig) stagnant++ else { stagnant = 0; lastSig = sig }
+
+            val safeUnhandled = unhandled.filter { 
+                val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+                NodeFinder.isNodeVisible(it.cardRoot, if (containerRect.isEmpty) null else containerRect, screenHeight, screenWidth)
+            }
+
+            // Release nodes of already-answered cards.
+            discovered.filter { stripNumberPrefix(it.questionText) in answered }.forEach {
+                it.interactiveNodes.forEach { n -> n.recycle() }
+                it.cardRoot.recycle()
+            }
+
+            if (unhandled.isEmpty()) {
+                if (submitVisible) {
+                    container?.recycle(); root.recycle()
+                    return ScanResult(submitVisible = true, endNoGaps = true, needsUser = false, stopped = false)
+                }
+                if (stagnant >= 4) {
+                    container?.recycle(); root.recycle()
+                    return ScanResult(submitVisible = false, endNoGaps = true, needsUser = false, stopped = false)
+                }
+                
+                var gestureUsed = false
+                val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+                if (useNativeScroll) {
+                    val sc = NodeFinder.performScrollForward(container)
+                    if (!sc) {
+                        AppLogger.w(TAG, "Native scroll returned false. Either at bottom or service needs restart.")
+                    }
+                } else {
+                    NodeFinder.performGestureScroll(
+                        this@AutoFillAccessibilityService, screenHeight, screenWidth,
+                        forward = true, fraction = 0.5f,
+                        containerRect = if (containerRect.isEmpty) null else containerRect
+                    )
+                    gestureUsed = true
+                }
+                container?.recycle()
+                scrollAttempts++
+                root.recycle()
+                delayScaled(if (gestureUsed) 400..500 else 50..100, config.automationSpeed)
+                continue
+            }
+
+            if (safeUnhandled.isEmpty() && !useNativeScroll) {
+                if (stagnant >= 6) {
+                    AppLogger.d(TAG, "Cannot bring remaining questions fully on-screen; answering via fallback.")
+                    container?.recycle()
+                    val r = processQuestions(unhandled, answered, answeredNums, maxNumSeen, config)
+                    root.recycle()
+                    if (r != AnswerOutcome.OK) return ScanResult(submitVisible = false, endNoGaps = false, needsUser = r == AnswerOutcome.NEEDS_USER, stopped = r == AnswerOutcome.STOP)
+                    continue
+                }
+                
+                val containerRect = android.graphics.Rect().apply { container?.getBoundsInScreen(this) }
+                NodeFinder.performGestureScroll(
+                    this@AutoFillAccessibilityService, screenHeight, screenWidth,
+                    forward = true, fraction = 0.5f,
+                    containerRect = if (containerRect.isEmpty) null else containerRect
+                )
+                container?.recycle()
+                scrollAttempts++
+                root.recycle()
+                delayScaled(400..500, config.automationSpeed)
+                continue
+            }
+
+            container?.recycle()
+            scrollAttempts = 0
+
+            val toProcess = if (useNativeScroll) unhandled else safeUnhandled.ifEmpty { unhandled }
+            val r = processQuestions(toProcess, answered, answeredNums, maxNumSeen, config)
+            
+            if (useNativeScroll && r == AnswerOutcome.OK) {
+                val sc2 = NodeFinder.findScrollableContainer(root)
+                NodeFinder.performScrollForward(sc2)
+                sc2?.recycle()
+                delayScaled(50..100, config.automationSpeed)
+            }
+            
+            root.recycle()
+            if (r != AnswerOutcome.OK) {
+                return ScanResult(submitVisible = false, endNoGaps = false, needsUser = r == AnswerOutcome.NEEDS_USER, stopped = r == AnswerOutcome.STOP)
+            }
+        }
+        return ScanResult(submitVisible = false, endNoGaps = true, needsUser = false, stopped = true)
+    }
+
+    private suspend fun processQuestions(
+        toProcess: List<DiscoveredQuestion>,
+        answered: MutableSet<String>,
+        answeredNums: MutableSet<Int>,
+        maxNumSeen: (Int) -> Unit,
+        config: PresetConfig
+    ): AnswerOutcome {
+        for (i in toProcess.indices) {
+            val q = toProcess[i]
+            if (shouldStop.get()) {
+                for (j in i until toProcess.size) {
+                    toProcess[j].interactiveNodes.forEach { it.recycle() }
+                    toProcess[j].cardRoot.recycle()
+                }
+                return AnswerOutcome.STOP
+            }
+
+            val num = extractQuestionNumber(q.questionText)
+            if (num != null) {
+                answeredNums.add(num)
+                maxNumSeen(num)
+            }
+
+            var preset = com.example.autoreview.service.QuestionMatcher.bestMatch(q.questionText, config.questions)
+            if (preset == null) {
+                if (config.unrecognizedPolicy == com.example.autoreview.data.UnrecognizedPolicy.ASK_USER) {
+                    AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Asking user for mapping.")
+                    shouldStop.set(true)
+                    val intent = Intent(this@AutoFillAccessibilityService, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("unrecognized_question", q.questionText)
+                    }
+                    startActivity(intent)
+                    updateState(OverlayService.AutomationState.IDLE)
+                    logHistory(false, "Paused for unrecognized question")
+                    q.interactiveNodes.forEach { it.recycle() }
+                    q.cardRoot.recycle()
+                    return AnswerOutcome.NEEDS_USER
+                } else {
+                    AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Using defaults.")
+                    preset = com.example.autoreview.data.QuestionPreset(
+                        questionTextKey = q.questionText,
+                        starValue = config.defaultStarRating,
+                        yesNo = (config.defaultBinaryChoice == "Yes")
+                    )
+                }
+            }
+
+            if (q.type == QuestionType.STAR_RATING) {
+                val stars = q.interactiveNodes
+                val starVal = preset.starValue ?: config.defaultStarRating
+                if (stars.size == 5 && starVal in 1..5) {
+                    AppLogger.d(TAG, "Clicking star $starVal for: ${q.questionText.take(50)}")
+                    NodeFinder.performClickOnNodeOrParent(stars[starVal - 1], this@AutoFillAccessibilityService, TAG)
+                    delayScaled(50..100, config.automationSpeed)
+                }
+            } else if (q.type == QuestionType.YES_NO) {
+                val yesNo = q.interactiveNodes
+                val choice = preset.yesNo ?: (config.defaultBinaryChoice == "Yes")
+                if (yesNo.size == 2) {
+                    val target = if (choice) yesNo[0] else yesNo[1]
+                    AppLogger.d(TAG, "Clicking ${if (choice) "Yes" else "No"} for: ${q.questionText.take(50)}")
+                    NodeFinder.performClickOnNodeOrParent(target, this@AutoFillAccessibilityService, TAG)
+                    delayScaled(50..100, config.automationSpeed)
+                }
+            }
+
+            q.interactiveNodes.forEach { it.recycle() }
+            q.cardRoot.recycle()
+            answered.add(stripNumberPrefix(q.questionText))
+        }
+        return AnswerOutcome.OK
     }
 
     private suspend fun waitForRoot(): AccessibilityNodeInfo {
