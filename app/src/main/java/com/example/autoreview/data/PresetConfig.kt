@@ -3,18 +3,6 @@ package com.example.autoreview.data
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-enum class UnrecognizedPolicy {
-    USE_DEFAULTS,
-    ASK_USER
-}
-
-@Serializable
-data class QuestionPreset(
-    val questionTextKey: String,
-    val starValue: Int? = null,
-    val yesNo: Boolean? = null
-)
-
 @Serializable
 data class RunHistoryEntry(
     val timestamp: Long,
@@ -24,12 +12,9 @@ data class RunHistoryEntry(
 
 @Serializable
 data class PresetConfig(
-    val questions: List<QuestionPreset> = emptyList(),
     val defaultStarRating: Int = 4,
     val defaultBinaryChoice: String = "Yes",
-    val unrecognizedPolicy: UnrecognizedPolicy = UnrecognizedPolicy.USE_DEFAULTS,
-    val runHistory: List<RunHistoryEntry> = emptyList(),
-    val automationSpeed: Float = 2.0f
+    val runHistory: List<RunHistoryEntry> = emptyList()
 ) {
     companion object {
         private val json = Json {

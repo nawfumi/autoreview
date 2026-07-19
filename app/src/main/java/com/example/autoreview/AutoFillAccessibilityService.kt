@@ -113,7 +113,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
         val screenHeight = dm.heightPixels
         val screenWidth = dm.widthPixels
 
-        AppLogger.i(TAG, "Screen: ${screenWidth}x${screenHeight}, speed=${config.automationSpeed}")
+        AppLogger.i(TAG, "Screen: ${screenWidth}x${screenHeight}, speed=1.5f")
 
         // Wait for "Write Review" button and click it if we are on schedule screen
         var root = waitForRoot()
@@ -136,7 +136,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
             val success = NodeFinder.performClickOnNodeOrParent(writeReviewBtn, this@AutoFillAccessibilityService, TAG)
             AppLogger.d(TAG, "Write Review click success: $success")
             writeReviewBtn.recycle()
-            delayScaled(1000L, config.automationSpeed)
+            delayScaled(1000L, 1.5f)
             root = waitForRoot()
         } else {
             // No Write Review button — either already submitted or no review available
@@ -198,6 +198,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 updateState(OverlayService.AutomationState.DONE)
                 AppLogger.d(TAG, "Automation finished (${answered.size} questions)")
                 logHistory(true, "Completed review (${answered.size} questions)")
+                com.aptabase.Aptabase.instance.trackEvent("review_submitted_success")
                 return@withContext
             }
             val sc = NodeFinder.findScrollableContainer(root)
@@ -208,7 +209,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 containerRect = if (containerRect.isEmpty) null else containerRect
             )
             sc?.recycle()
-            delayScaled(400L, config.automationSpeed)
+            delayScaled(400L, 1.5f)
         }
 
         AppLogger.e(TAG, "Submit button not found")
@@ -311,7 +312,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
             )
             container?.recycle()
             root.recycle()
-            delayScaled(400..500, config.automationSpeed)
+            delayScaled(400..500, 1.5f)
         }
     }
 
@@ -421,7 +422,7 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 container?.recycle()
                 scrollAttempts++
                 root.recycle()
-                delayScaled(if (gestureUsed) 400..500 else 100..250, config.automationSpeed)
+                delayScaled(if (gestureUsed) 400..500 else 100..250, 1.5f)
                 continue
             } else {
                 container?.recycle()
@@ -462,47 +463,22 @@ class AutoFillAccessibilityService : AccessibilityService() {
                 maxNumSeen(num)
             }
 
-            var preset = com.example.autoreview.service.QuestionMatcher.bestMatch(q.questionText, config.questions)
-            if (preset == null) {
-                if (config.unrecognizedPolicy == com.example.autoreview.data.UnrecognizedPolicy.ASK_USER) {
-                    AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Asking user for mapping.")
-                    shouldStop.set(true)
-                    val intent = Intent(this@AutoFillAccessibilityService, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        putExtra("unrecognized_question", q.questionText)
-                    }
-                    startActivity(intent)
-                    updateState(OverlayService.AutomationState.IDLE)
-                    logHistory(false, "Paused for unrecognized question")
-                    q.interactiveNodes.forEach { it.recycle() }
-                    q.cardRoot.recycle()
-                    return AnswerOutcome.NEEDS_USER
-                } else {
-                    AppLogger.w(TAG, "Unrecognized question: \"${q.questionText}\". Using defaults.")
-                    preset = com.example.autoreview.data.QuestionPreset(
-                        questionTextKey = q.questionText,
-                        starValue = config.defaultStarRating,
-                        yesNo = (config.defaultBinaryChoice == "Yes")
-                    )
-                }
-            }
-
             if (q.type == QuestionType.STAR_RATING) {
                 val stars = q.interactiveNodes
-                val starVal = preset.starValue ?: config.defaultStarRating
+                val starVal = config.defaultStarRating
                 if (stars.size == 5 && starVal in 1..5) {
                     AppLogger.d(TAG, "Clicking star $starVal for: ${q.questionText.take(50)}")
                     NodeFinder.performClickOnNodeOrParent(stars[starVal - 1], this@AutoFillAccessibilityService, TAG)
-                    delayScaled(100..200, config.automationSpeed)
+                    delayScaled(100..200, 1.5f)
                 }
             } else if (q.type == QuestionType.YES_NO) {
                 val yesNo = q.interactiveNodes
-                val choice = preset.yesNo ?: (config.defaultBinaryChoice == "Yes")
+                val choice = (config.defaultBinaryChoice == "Yes")
                 if (yesNo.size == 2) {
                     val target = if (choice) yesNo[0] else yesNo[1]
                     AppLogger.d(TAG, "Clicking ${if (choice) "Yes" else "No"} for: ${q.questionText.take(50)}")
                     NodeFinder.performClickOnNodeOrParent(target, this@AutoFillAccessibilityService, TAG)
-                    delayScaled(100..200, config.automationSpeed)
+                    delayScaled(100..200, 1.5f)
                 }
             }
 

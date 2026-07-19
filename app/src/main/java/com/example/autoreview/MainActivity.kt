@@ -51,13 +51,13 @@ import androidx.core.net.toUri
 import com.example.autoreview.ui.MainViewModel
 import com.example.autoreview.ui.PermissionsScreen
 import com.example.autoreview.ui.PresetSettingsScreen
-import com.example.autoreview.ui.UnrecognizedQuestionScreen
+
 import com.example.autoreview.ui.theme.AutoReviewTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class Screen { PERMISSIONS, MAIN, PRESET_SETTINGS, UNRECOGNIZED_QUESTION, LOGS }
+private enum class Screen { PERMISSIONS, MAIN, PRESET_SETTINGS, LOGS }
 
 class MainActivity : ComponentActivity() {
 
@@ -65,28 +65,14 @@ class MainActivity : ComponentActivity() {
         androidx.lifecycle.ViewModelProvider(this)[MainViewModel::class.java]
     }
 
-    private val unrecognizedQuestionState = mutableStateOf<String?>(null)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         com.example.autoreview.util.AppLogger.init(applicationContext)
-        handleIntent(intent)
         setContent {
             AutoReviewTheme {
-                AutoReviewApp(viewModel, unrecognizedQuestionState)
+                AutoReviewApp(viewModel)
             }
-        }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleIntent(intent)
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        intent?.getStringExtra("unrecognized_question")?.let {
-            unrecognizedQuestionState.value = it
         }
     }
 
@@ -98,7 +84,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableState<String?>) {
+fun AutoReviewApp(viewModel: MainViewModel) {
     val context = LocalContext.current
     val config by viewModel.presetConfig.collectAsState()
     val overlayActive by viewModel.overlayActive.collectAsState()
@@ -106,12 +92,6 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
 
     val prefs = context.getSharedPreferences("autoreview_prefs", Context.MODE_PRIVATE)
     var disclosureAccepted by remember { mutableStateOf(prefs.getBoolean("disclosure_accepted", false)) }
-
-    LaunchedEffect(unrecognizedQuestionState.value) {
-        if (unrecognizedQuestionState.value != null) {
-            currentScreen = Screen.UNRECOGNIZED_QUESTION
-        }
-    }
 
     var accessibilityGranted by remember { mutableStateOf(viewModel.checkAccessibilityEnabled(context)) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -128,23 +108,6 @@ fun AutoReviewApp(viewModel: MainViewModel, unrecognizedQuestionState: MutableSt
     }
 
     when (currentScreen) {
-        Screen.UNRECOGNIZED_QUESTION -> {
-            androidx.activity.compose.BackHandler { currentScreen = Screen.MAIN }
-            val text = unrecognizedQuestionState.value ?: ""
-            UnrecognizedQuestionScreen(
-                unrecognizedText = text,
-                config = config,
-                onSave = { 
-                    viewModel.saveConfig(it)
-                    unrecognizedQuestionState.value = null
-                    currentScreen = Screen.MAIN
-                },
-                onCancel = {
-                    unrecognizedQuestionState.value = null
-                    currentScreen = Screen.MAIN
-                }
-            )
-        }
         Screen.PERMISSIONS -> {
             androidx.activity.compose.BackHandler { currentScreen = Screen.MAIN }
             PermissionsScreen(
@@ -250,11 +213,6 @@ private fun MainScreen(
                     Spacer(Modifier.height(8.dp))
                     Text("Default star rating: ${config.defaultStarRating}/5")
                     Text("Default binary: ${config.defaultBinaryChoice}")
-                    if (config.questions.isNotEmpty()) {
-                        Text("${config.questions.size} question override(s) configured")
-                    } else {
-                        Text("No per-question overrides", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                 }
             }
 
