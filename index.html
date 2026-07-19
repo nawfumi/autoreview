@@ -801,6 +801,245 @@
             max-width: 440px;
         }
 
+        /* ---------- PRO SECTION ---------- */
+        .pro-section {
+            padding: 100px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pro-section::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 700px 500px at 20% 80%, rgba(216, 32, 42, 0.08), transparent 60%),
+                radial-gradient(ellipse 600px 400px at 80% 20%, rgba(139, 127, 240, 0.1), transparent 55%);
+            pointer-events: none;
+        }
+
+        .pro-header {
+            text-align: center;
+            margin-bottom: 56px;
+        }
+
+        .pro-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #FF6B6B;
+            background: rgba(216, 32, 42, 0.12);
+            border: 1px solid rgba(216, 32, 42, 0.3);
+            padding: 6px 14px;
+            border-radius: 100px;
+            margin-bottom: 22px;
+        }
+
+        .pro-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #FF6B6B;
+            animation: blink 1.6s ease-in-out infinite;
+        }
+
+        .pro-logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .pro-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 8px 32px rgba(216, 32, 42, 0.25);
+        }
+
+        .pro-logo svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .pro-app-name {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(28px, 3.5vw, 42px);
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #FF6B6B, #D8202A, #8B7FF0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .pro-header > p {
+            color: var(--text-muted);
+            font-size: 16px;
+            max-width: 560px;
+            margin: 0 auto;
+            line-height: 1.65;
+        }
+
+        .pro-features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 64px;
+        }
+
+        .pro-feature {
+            background: linear-gradient(160deg, var(--surface), var(--bg-elevated));
+            border: 1px solid var(--border);
+            border-radius: var(--radius-m);
+            padding: 24px;
+            transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .pro-feature:hover {
+            transform: translateY(-4px);
+            border-color: rgba(216, 32, 42, 0.4);
+            box-shadow: 0 12px 32px -8px rgba(216, 32, 42, 0.15);
+        }
+
+        .pro-feature .pf-icon {
+            font-size: 24px;
+            margin-bottom: 14px;
+            display: block;
+        }
+
+        .pro-feature h3 {
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .pro-feature p {
+            color: var(--text-muted);
+            font-size: 13.5px;
+        }
+
+        .pro-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 48px;
+        }
+
+        .comparison-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-l);
+            overflow: hidden;
+            transition: border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .comparison-card:hover {
+            border-color: rgba(76, 224, 179, 0.3);
+        }
+
+        .comparison-card.pro-card:hover {
+            border-color: rgba(216, 32, 42, 0.4);
+            box-shadow: 0 12px 40px -12px rgba(216, 32, 42, 0.2);
+        }
+
+        .comparison-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-label .speed-tag {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-weight: 500;
+        }
+
+        .comparison-card:not(.pro-card) .speed-tag {
+            background: var(--mint-dim);
+            color: var(--mint);
+            border: 1px solid rgba(76, 224, 179, 0.25);
+        }
+
+        .comparison-card.pro-card .speed-tag {
+            background: rgba(216, 32, 42, 0.12);
+            color: #FF6B6B;
+            border: 1px solid rgba(216, 32, 42, 0.3);
+        }
+
+        .comparison-card video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+
+        .pro-cta-area {
+            text-align: center;
+        }
+
+        .pro-cta-area p {
+            color: var(--text-muted);
+            font-size: 15px;
+            margin-bottom: 20px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .pro-cta-area p em {
+            color: var(--mint);
+            font-style: normal;
+        }
+
+        .btn-pro {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #D8202A, #FF6B6B);
+            color: #fff;
+            font-weight: 700;
+            font-size: 15px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            transition: transform .15s ease, box-shadow .15s ease;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-pro:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px -8px rgba(216, 32, 42, 0.5);
+        }
+
+        @media (max-width: 920px) {
+            .pro-features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .pro-features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* ---------- FOOTER ---------- */
         footer {
             border-top: 1px solid var(--border);
@@ -858,6 +1097,10 @@
             .download-card {
                 padding: 32px;
             }
+
+            .pro-comparison {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -879,6 +1122,7 @@
             <nav class="nav-links">
                 <a href="#how">How it works</a>
                 <a href="#features">Features</a>
+                <a href="#pro" style="color:#FF6B6B;">Pro</a>
                 <a href="#stack">Tech stack</a>
                 <a href="https://github.com/nawfumi/autoreview" target="_blank" rel="noopener">GitHub</a>
             </nav>
@@ -1109,6 +1353,96 @@
             </div>
         </section>
 
+        <!-- ========== AUTOREVIEW PRO ========== -->
+        <section class="pro-section" id="pro">
+            <div class="wrap">
+                <div class="pro-header">
+                    <div class="pro-badge"><span class="dot"></span> Coming Soon · Premium</div>
+                    <div class="pro-logo-container">
+                        <div class="pro-logo">
+                            <svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+                                <rect width="108" height="108" fill="#D8202A"/>
+                                <g transform="scale(2.2) translate(27.6, 27.6)">
+                                    <path fill="#FFFFFF" d="M12,2 L15,6 H20 L22,14 L18,21 H6 L2,14 L4,6 H9 Z"/>
+                                    <path fill="#D8202A" d="M12,5 L18,1 L15,7 L12,8 L9,7 L6,1 Z"/>
+                                    <path fill="#D8202A" d="M6,11 L10,13 L10,10 Z M18,11 L14,13 L14,10 Z"/>
+                                    <path fill="#D8202A" d="M11,16 H13 V19 H11 Z"/>
+                                </g>
+                            </svg>
+                        </div>
+                        <span class="pro-app-name">AutoReview Pro</span>
+                    </div>
+                    <p>Take your review automation to the next level. Faster submissions, custom presets, and a manga-inspired experience — built for power users who want more control.</p>
+                </div>
+
+                <div class="pro-features-grid">
+                    <div class="pro-feature">
+                        <span class="pf-icon">🚀</span>
+                        <h3>4-Second Reviews</h3>
+                        <p>Submit complete reviews in under 4 seconds — blazing fast compared to the standard flow.</p>
+                    </div>
+                    <div class="pro-feature">
+                        <span class="pf-icon">⭐</span>
+                        <h3>Per-Question Overrides</h3>
+                        <p>Set individual star ratings or binary choices for specific questions instead of relying on defaults.</p>
+                    </div>
+                    <div class="pro-feature">
+                        <span class="pf-icon">🎨</span>
+                        <h3>Custom Presets</h3>
+                        <p>Create and switch between multiple preset configurations for different review scenarios.</p>
+                    </div>
+                    <div class="pro-feature">
+                        <span class="pf-icon">📖</span>
+                        <h3>Manga Theme</h3>
+                        <p>A stunning customized manga-inspired theme that transforms the entire app experience.</p>
+                    </div>
+                </div>
+
+                <div class="section-head" style="text-align:center; margin: 0 auto 32px;">
+                    <div class="section-eyebrow" style="color:#FF6B6B;">Speed comparison</div>
+                    <h2>See the difference</h2>
+                    <p>Watch both versions side by side. The Pro version completes the same review flow in a fraction of the time.</p>
+                </div>
+
+                <div class="pro-comparison">
+                    <div class="comparison-card">
+                        <div class="comparison-label">
+                            <span>AutoReview Basic</span>
+                            <span class="speed-tag">Standard Speed</span>
+                        </div>
+                        <video controls playsinline preload="metadata" poster="">
+                            <source src="https://raw.githubusercontent.com/nawfumi/autoreview/main/assets/basic.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <div class="comparison-card pro-card">
+                        <div class="comparison-label">
+                            <span>AutoReview Pro ⚡</span>
+                            <span class="speed-tag">4 sec</span>
+                        </div>
+                        <video controls playsinline preload="metadata" poster="">
+                            <source src="https://raw.githubusercontent.com/nawfumi/autoreview/main/assets/pro.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+
+                <div class="pro-cta-area" id="pro-cta-area">
+                    <p>AutoReview Pro is currently in <em>testing</em>. Leave your email and we'll notify you when it's publicly released!</p>
+                    <form onsubmit="submitProForm(event)" style="display: flex; gap: 12px; justify-content: center; align-items: center; max-width: 440px; margin: 0 auto; flex-wrap: wrap;">
+                        <input type="email" id="pro-email" placeholder="Enter your email address" required 
+                            style="flex: 1; min-width: 200px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size: 15px; outline: none; font-family: var(--font-body);">
+                        <button type="submit" class="btn-pro" id="pro-submit-btn">
+                            <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
+                                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.3L12 16.7l-6.2 4.5 2.4-7.3L2 9.4h7.6z" fill="#fff"/>
+                            </svg>
+                            Notify Me
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
         <section id="stack">
             <div class="wrap">
                 <div class="section-head">
@@ -1174,6 +1508,46 @@
         </div>
     </footer>
 
+    <script>
+        function submitProForm(event) {
+            event.preventDefault();
+            
+            const btn = document.getElementById('pro-submit-btn');
+            const emailInput = document.getElementById('pro-email');
+            const email = emailInput.value;
+            
+            // Loading state
+            btn.innerHTML = "Submitting...";
+            btn.style.opacity = "0.7";
+            btn.disabled = true;
+            emailInput.disabled = true;
+
+            const url = "https://docs.google.com/forms/d/e/1FAIpQLSfMzloEx4SWiwy2Xy14pzuVLcQPihe7qFBKHy67C3y5eXRNog/formResponse";
+            const data = new URLSearchParams();
+            
+            // Provide the email to both possible entry IDs to ensure it records correctly
+            data.append("entry.1208807437", email);
+            data.append("entry.1794261746", email);
+
+            fetch(url, {
+                method: "POST",
+                mode: "no-cors",
+                body: data
+            }).then(() => {
+                document.getElementById('pro-cta-area').innerHTML = 
+                    "<div style='padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: inline-block;'>" +
+                    "<p style='color: var(--mint); font-weight: 600; font-size: 18px; margin: 0 0 8px 0;'>🎉 You're on the list!</p>" +
+                    "<p style='color: var(--text-muted); font-size: 15px; margin: 0;'>Thanks for your interest. We'll email you when AutoReview Pro is ready.</p></div>";
+            }).catch(err => {
+                console.error(err);
+                btn.innerHTML = "Notify Me";
+                btn.style.opacity = "1";
+                btn.disabled = false;
+                emailInput.disabled = false;
+                alert("Something went wrong. Please try again later.");
+            });
+        }
+    </script>
 </body>
 
 </html>

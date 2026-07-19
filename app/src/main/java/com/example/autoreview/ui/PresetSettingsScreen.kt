@@ -156,10 +156,11 @@ fun PresetSettingsScreen(
 
                         Spacer(Modifier.height(20.dp))
 
+                        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
                         Button(
                             onClick = {
                                 com.aptabase.Aptabase.instance.trackEvent("premium_link_clicked")
-                                /* TODO: Open Pro link */
+                                uriHandler.openUri("https://nawfumi.github.io/autoreview/")
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
@@ -167,7 +168,7 @@ fun PresetSettingsScreen(
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
-                            Text("Learn More (example.com/pro)", fontWeight = FontWeight.Bold)
+                            Text("Learn More", fontWeight = FontWeight.Bold)
                         }
                     }
 
