@@ -141,7 +141,8 @@ fun PresetSettingsScreen(
                             "🚀 Highlighted Feature: Review submission in 4 sec!",
                             "⭐ Add per-question overrides for default stars",
                             "🎨 Use customized presets for different scenarios",
-                            "📖 Enjoy a customized manga theme"
+                            "📖 Enjoy a customized manga theme",
+                            "⚡ Submit all reviews at the same time"
                         )
 
                         features.forEach { feature ->
